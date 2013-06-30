@@ -25,6 +25,7 @@ public class JobQueueTaskScheduler extends TaskScheduler {
 	private final List<JobInProgressListener> jobInProgressListeners = new CopyOnWriteArrayList<JobInProgressListener>();
 	private float padFraction;
 
+	
 	public JobQueueTaskScheduler() {
 		this.jobQueueJobInProgressListener = new JobQueueJobInProgressListener();
 	}

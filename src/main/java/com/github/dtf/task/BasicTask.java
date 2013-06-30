@@ -4,7 +4,7 @@ import java.util.Set;
 
 import com.github.dtf.job.Job;
 
-public abstract class BasicTask implements Task{
+public abstract class BasicTask implements Task {
 	/**
 	 * the name of the test case
 	 */

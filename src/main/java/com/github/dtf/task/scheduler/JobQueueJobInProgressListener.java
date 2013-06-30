@@ -11,13 +11,13 @@ public class JobQueueJobInProgressListener extends JobInProgressListener {
 	@Override
 	public void jobAdded(JobInProgress job) throws IOException {
 		// TODO Auto-generated method stub
-		
+
 	}
 
 	@Override
 	public void jobRemoved(JobInProgress job) {
 		// TODO Auto-generated method stub
-		
+
 	}
 
 	public Collection<JobInProgress> getJobQueue() {

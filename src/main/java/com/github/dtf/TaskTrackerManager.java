@@ -2,7 +2,6 @@ package com.github.dtf;
 
 
 import java.io.IOException;
-import java.util.Collection;
 
 /**
  * Manages information about the {@link TaskTracker}s running on a cluster.

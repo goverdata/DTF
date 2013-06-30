@@ -82,5 +82,6 @@ public abstract class TaskScheduler {
 	 * @param jobInProgressListener
 	 *            the {@link JobInProgressListener} to remove
 	 */
-	public abstract void removeJobInProgressListener(JobInProgressListener listener);
+	public abstract void removeJobInProgressListener(
+			JobInProgressListener listener);
 }

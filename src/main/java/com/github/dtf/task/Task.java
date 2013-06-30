@@ -12,18 +12,18 @@ public interface Task {
 	public String getName();
 
 	public void setName(String name);
-	
+
 	public String getPath();
-	
+
 	public void setPath(String casePath);
-	
+
 	public void setPath(Set<String> caseFlags);
-	
+
 	public Set<String> getFlag();
 
 	public TaskType getType();
-	
+
 	public Job getJob();
-	
+
 	public void setJob(Job caseJob);
 }
