@@ -12,6 +12,7 @@ import org.apache.commons.logging.LogFactory;
 import com.github.dtf.JobID;
 import com.github.dtf.JobInProgress;
 import com.github.dtf.JobInProgressListener;
+import com.github.dtf.job.JobStatus;
 import com.github.dtf.task.Task;
 import com.github.dtf.task.TaskTrackerStatus;
 
@@ -66,18 +67,21 @@ public class JobQueueTaskScheduler extends TaskScheduler {
 
 		ClusterStatus clusterStatus = taskTrackerManager.getClusterStatus();
 		final int numTaskTrackers = clusterStatus.getTaskTrackers();
-		final int clusterMapCapacity = clusterStatus.getMaxMapTasks();
-		final int clusterReduceCapacity = clusterStatus.getMaxReduceTasks();
+		final int clusterCapacity = clusterStatus.getMaxTasks();
+//		final int clusterMapCapacity = clusterStatus.getMaxMapTasks();
+//		final int clusterReduceCapacity = clusterStatus.getMaxReduceTasks();
 
 		Collection<JobInProgress> jobQueue = jobQueueJobInProgressListener.getJobQueue();
 
 		//
 		// Get map + reduce counts for the current tracker.
 		//
-		final int trackerMapCapacity = taskTracker.getMaxMapTasks();
-		final int trackerReduceCapacity = taskTracker.getMaxReduceTasks();
-		final int trackerRunningMaps = taskTracker.countMapTasks();
-		final int trackerRunningReduces = taskTracker.countReduceTasks();
+//		final int trackerMapCapacity = taskTracker.getMaxMapTasks();
+//		final int trackerReduceCapacity = taskTracker.getMaxReduceTasks();
+//		final int trackerRunningMaps = taskTracker.countMapTasks();
+//		final int trackerRunningReduces = taskTracker.countReduceTasks();
+		final int trackerCapacity = taskTracker.getMaxTasks();
+		final int trackerRunning = taskTracker.countTasks();
 
 		// Assigned tasks
 		List<Task> assignedTasks = new ArrayList<Task>();
@@ -85,29 +89,19 @@ public class JobQueueTaskScheduler extends TaskScheduler {
 		//
 		// Compute (running + pending) map and reduce task numbers across pool
 		//
-		int remainingReduceLoad = 0;
 		int remainingMapLoad = 0;
 		synchronized (jobQueue) {
 			for (JobInProgress job : jobQueue) {
 				if (job.getStatus().getRunState() == JobStatus.RUNNING) {
-					remainingMapLoad += (job.desiredMaps() - job.finishedMaps());
-					if (job.scheduleReduces()) {
-						remainingReduceLoad += (job.desiredReduces() - job
-								.finishedReduces());
-					}
+					remainingMapLoad += (job.desiredTasks() - job.finishedTasks());
 				}
 			}
 		}
 
-		// Compute the 'load factor' for maps and reduces
+		// Compute the 'load factor' for tasks
 		double mapLoadFactor = 0.0;
-		if (clusterMapCapacity > 0) {
-			mapLoadFactor = (double) remainingMapLoad / clusterMapCapacity;
-		}
-		double reduceLoadFactor = 0.0;
-		if (clusterReduceCapacity > 0) {
-			reduceLoadFactor = (double) remainingReduceLoad
-					/ clusterReduceCapacity;
+		if (clusterCapacity > 0) {
+			mapLoadFactor = (double) remainingMapLoad / clusterCapacity;
 		}
 
 		//
@@ -128,13 +122,13 @@ public class JobQueueTaskScheduler extends TaskScheduler {
 		//
 
 		final int trackerCurrentMapCapacity = Math.min(
-				(int) Math.ceil(mapLoadFactor * trackerMapCapacity),
-				trackerMapCapacity);
-		int availableMapSlots = trackerCurrentMapCapacity - trackerRunningMaps;
+				(int) Math.ceil(mapLoadFactor * trackerCapacity),
+				trackerCapacity);
+		int availableMapSlots = trackerCurrentMapCapacity - trackerRunning;
 		boolean exceededMapPadding = false;
 		if (availableMapSlots > 0) {
 			exceededMapPadding = exceededPadding(true, clusterStatus,
-					trackerMapCapacity);
+					trackerCapacity);
 		}
 
 		int numLocalMaps = 0;
@@ -149,7 +143,7 @@ public class JobQueueTaskScheduler extends TaskScheduler {
 					Task t = null;
 
 					// Try to schedule a node-local or rack-local Map task
-					t = job.obtainNewLocalMapTask(taskTracker, numTaskTrackers,
+					t = job.obtainNewLocalTask(taskTracker, numTaskTrackers,
 							taskTrackerManager.getNumberOfUniqueHosts());
 					if (t != null) {
 						assignedTasks.add(t);
@@ -169,7 +163,7 @@ public class JobQueueTaskScheduler extends TaskScheduler {
 					}
 
 					// Try to schedule a node-local or rack-local Map task
-					t = job.obtainNewNonLocalMapTask(taskTracker,
+					t = job.obtainNewNonLocalTask(taskTracker,
 							numTaskTrackers,
 							taskTrackerManager.getNumberOfUniqueHosts());
 
@@ -188,47 +182,8 @@ public class JobQueueTaskScheduler extends TaskScheduler {
 		}
 		int assignedMaps = assignedTasks.size();
 
-		//
-		// Same thing, but for reduce tasks
-		// However we _never_ assign more than 1 reduce task per heartbeat
-		//
-		final int trackerCurrentReduceCapacity = Math.min(
-				(int) Math.ceil(reduceLoadFactor * trackerReduceCapacity),
-				trackerReduceCapacity);
-		final int availableReduceSlots = Math.min(
-				(trackerCurrentReduceCapacity - trackerRunningReduces), 1);
-		boolean exceededReducePadding = false;
-		if (availableReduceSlots > 0) {
-			exceededReducePadding = exceededPadding(false, clusterStatus,
-					trackerReduceCapacity);
-			synchronized (jobQueue) {
-				for (JobInProgress job : jobQueue) {
-					if (job.getStatus().getRunState() != JobStatus.RUNNING
-							|| job.numReduceTasks == 0) {
-						continue;
-					}
-
-					Task t = job.obtainNewReduceTask(taskTracker,
-							numTaskTrackers,
-							taskTrackerManager.getNumberOfUniqueHosts());
-					if (t != null) {
-						assignedTasks.add(t);
-						break;
-					}
-
-					// Don't assign reduce tasks to the hilt!
-					// Leave some free slots in the cluster for future
-					// task-failures,
-					// speculative tasks etc. beyond the highest priority job
-					if (exceededReducePadding) {
-						break;
-					}
-				}
-			}
-		}
-
 		if (LOG.isDebugEnabled()) {
-			LOG.debug("Task assignments for " + taskTracker.getTrackerName()
+			/*LOG.debug("Task assignments for " + taskTracker.getTrackerName()
 					+ " --> " + "[" + mapLoadFactor + ", " + trackerMapCapacity
 					+ ", " + trackerCurrentMapCapacity + ", "
 					+ trackerRunningMaps + "] -> ["
@@ -239,7 +194,7 @@ public class JobQueueTaskScheduler extends TaskScheduler {
 					+ trackerCurrentReduceCapacity + ","
 					+ trackerRunningReduces + "] -> ["
 					+ (trackerCurrentReduceCapacity - trackerRunningReduces)
-					+ ", " + (assignedTasks.size() - assignedMaps) + "]");
+					+ ", " + (assignedTasks.size() - assignedMaps) + "]");*/
 		}
 
 		return assignedTasks;

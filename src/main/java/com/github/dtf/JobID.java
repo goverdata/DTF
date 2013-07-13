@@ -9,6 +9,7 @@ import java.text.NumberFormat;
 public class JobID {
 	protected static final String JOB = "job";
 	  private final String jtIdentifier;
+	  private final String id;
 	  
 	  protected static final NumberFormat idFormat = NumberFormat.getInstance();
 	  static {
@@ -22,8 +23,10 @@ public class JobID {
 	   * @param id job number
 	   */
 	  public JobID(String jtIdentifier, int id) {
-	    super(id);
-	    this.jtIdentifier = new Text(jtIdentifier);
+//	    super(id);
+//	    this.jtIdentifier = new Text(jtIdentifier);
+	    this.jtIdentifier = jtIdentifier;
+	    this.id = id;
 	  }
 	  
 	  public JobID() { 

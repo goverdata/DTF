@@ -3,6 +3,8 @@ package com.github.dtf;
 
 import java.io.IOException;
 
+import com.github.dtf.task.scheduler.ClusterStatus;
+
 /**
  * Manages information about the {@link TaskTracker}s running on a cluster.
  * This interface exits primarily to test the {@link JobTracker}, and is not
@@ -72,4 +74,6 @@ public interface TaskTrackerManager {
    * @param job JobInProgress object
    */
   public void failJob(JobInProgress job);
+
+public ClusterStatus getClusterStatus();
 }
