@@ -25,6 +25,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+import com.github.dtf.io.DataOutputBuffer;
+import com.github.dtf.rpc.Writable;
 import com.github.dtf.utils.NetUtils;
 
 
@@ -33,6 +35,12 @@ import com.github.dtf.utils.NetUtils;
  * socket: responses may be delivered out of order. */
 public class Connection extends Thread {
   public static final Log LOG = LogFactory.getLog(Connection.class);
+  
+  final static int PING_CALL_ID = -1;
+  final private Configuration conf;
+  private Class<? extends Writable> valueClass;   // class of call values
+  private int counter;                            // counter for call ids
+  
   private InetSocketAddress server;             // server ip:port
   private String serverPrincipal;  // server's krb5 principal name
   private IpcConnectionContextProto connectionContext;   // connection context
@@ -578,8 +586,7 @@ public class Connection extends Thread {
    */
   private synchronized boolean waitForWork() {
     if (calls.isEmpty() && !shouldCloseConnection.get()  && running.get())  {
-      long timeout = maxIdleTime-
-            (Time.now()-lastActivity.get());
+      long timeout = maxIdleTime - (Time.now()-lastActivity.get());
       if (timeout>0) {
         try {
           wait(timeout);
@@ -605,6 +612,7 @@ public class Connection extends Thread {
     return server;
   }
 
+
   /* Send a ping to the server if the time elapsed 
    * since last I/O activity is equal to or greater than the ping interval
    */
@@ -620,9 +628,9 @@ public class Connection extends Thread {
   }
 
   public void run() {
-    if (LOG.isDebugEnabled())
+    /*if (LOG.isDebugEnabled())
       LOG.debug(getName() + ": starting, having connections " 
-          + connections.size());
+          + connections.size());*/
 
     try {
       while (waitForWork()) {//wait here for work - read or close connection
@@ -638,9 +646,9 @@ public class Connection extends Thread {
     
     close();
     
-    if (LOG.isDebugEnabled())
+    /*if (LOG.isDebugEnabled())
       LOG.debug(getName() + ": stopped, remaining connections "
-          + connections.size());
+          + connections.size());*/
   }
 
   /** Initiates a call by sending the parameter to the remote server.
@@ -652,7 +660,7 @@ public class Connection extends Thread {
       return;
     }
 
-    DataOutputBuffer d=null;
+    DataOutputBuffer buffer=null;
     try {
       synchronized (this.out) {
         if (LOG.isDebugEnabled())
@@ -664,14 +672,14 @@ public class Connection extends Thread {
         // 1) PayloadHeader  - is serialized Delimited hence contains length
         // 2) the Payload - the RpcRequest
         //
-        d = new DataOutputBuffer();
+        buffer = new DataOutputBuffer();
         RpcPayloadHeaderProto header = ProtoUtil.makeRpcPayloadHeader(
            call.rpcKind, RpcPayloadOperationProto.RPC_FINAL_PAYLOAD, call.id);
-        header.writeDelimitedTo(d);
-        call.rpcRequest.write(d);
-        byte[] data = d.getData();
+        header.writeDelimitedTo(buffer);
+        call.rpcRequest.write(buffer);
+        byte[] data = buffer.getData();
  
-        int totalLength = d.getLength();
+        int totalLength = buffer.getLength();
         out.writeInt(totalLength); // Total Length
         out.write(data, 0, totalLength);//PayloadHeader + RpcRequest
         out.flush();
@@ -681,7 +689,7 @@ public class Connection extends Thread {
     } finally {
       //the buffer is just an in-memory buffer, but it is still polite to
       // close early
-      IOUtils.closeStream(d);
+      IOUtils.closeStream(buffer);
     }
   }  
 

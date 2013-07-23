@@ -19,8 +19,6 @@
  */
 package com.github.dtf.transport.tcp;
 
-import org.apache.mina.service.client.AbstractIoClient;
-import org.apache.mina.service.executor.IoHandlerExecutor;
 
 /**
  * Base class for TCP based Clients

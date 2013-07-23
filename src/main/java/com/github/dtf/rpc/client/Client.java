@@ -41,18 +41,13 @@ public class Client {
   
   public static final Log LOG = LogFactory.getLog(Client.class);
 
-  private Hashtable<ConnectionId, Connection> connections =
-    new Hashtable<ConnectionId, Connection>();
+  private Hashtable<ConnectionId, Connection> connections = new Hashtable<ConnectionId, Connection>();
 
-  private Class<? extends Writable> valueClass;   // class of call values
-  private int counter;                            // counter for call ids
   private AtomicBoolean running = new AtomicBoolean(true); // if client runs
-  final private Configuration conf;
 
   private SocketFactory socketFactory;           // how to create sockets
-  private int refCount = 1;
   
-  final static int PING_CALL_ID = -1;
+  private int refCount = 1;
   
   /**
    * set the ping interval value in configuration
@@ -272,8 +267,6 @@ public class Client {
   }
 
   // for unit testing only
-  @InterfaceAudience.Private
-  @InterfaceStability.Unstable
   Set<ConnectionId> getConnectionIds() {
     synchronized (connections) {
       return connections.keySet();
