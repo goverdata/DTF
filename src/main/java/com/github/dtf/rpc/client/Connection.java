@@ -27,6 +27,7 @@ import org.apache.commons.logging.LogFactory;
 
 import com.github.dtf.io.DataOutputBuffer;
 import com.github.dtf.rpc.Writable;
+import com.github.dtf.utils.IOUtils;
 import com.github.dtf.utils.NetUtils;
 
 
@@ -663,8 +664,9 @@ public class Connection extends Thread {
     DataOutputBuffer buffer=null;
     try {
       synchronized (this.out) {
-        if (LOG.isDebugEnabled())
+        if (LOG.isDebugEnabled()){
           LOG.debug(getName() + " sending #" + call.id);
+        }
         
         // Serializing the data to be written.
         // Format:
@@ -673,9 +675,11 @@ public class Connection extends Thread {
         // 2) the Payload - the RpcRequest
         //
         buffer = new DataOutputBuffer();
-        RpcPayloadHeaderProto header = ProtoUtil.makeRpcPayloadHeader(
-           call.rpcKind, RpcPayloadOperationProto.RPC_FINAL_PAYLOAD, call.id);
-        header.writeDelimitedTo(buffer);
+        
+        //Add the header
+//        RpcPayloadHeaderProto header = ProtoUtil.makeRpcPayloadHeader(
+//           call.rpcKind, RpcPayloadOperationProto.RPC_FINAL_PAYLOAD, call.id);
+//        header.writeDelimitedTo(buffer);
         call.rpcRequest.write(buffer);
         byte[] data = buffer.getData();
  

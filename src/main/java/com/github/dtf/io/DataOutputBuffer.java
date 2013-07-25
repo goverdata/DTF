@@ -7,6 +7,10 @@ import java.io.IOException;
 import java.io.OutputStream;
 
 
+/**
+ * @author hadoop
+ *
+ */
 public class DataOutputBuffer extends DataOutputStream {
 
 	  private static class Buffer extends ByteArrayOutputStream {

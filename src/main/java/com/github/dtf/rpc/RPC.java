@@ -38,19 +38,19 @@ import javax.net.SocketFactory;
 
 import org.apache.commons.logging.*;
 
-import org.apache.hadoop.HadoopIllegalArgumentException;
-import org.apache.hadoop.io.*;
-import org.apache.hadoop.io.retry.RetryPolicy;
-import org.apache.hadoop.ipc.Client.ConnectionId;
-import org.apache.hadoop.ipc.protobuf.ProtocolInfoProtos.ProtocolInfoService;
-import org.apache.hadoop.net.NetUtils;
-import org.apache.hadoop.security.SaslRpcServer;
-import org.apache.hadoop.security.UserGroupInformation;
-import org.apache.hadoop.security.token.SecretManager;
-import org.apache.hadoop.security.token.TokenIdentifier;
-import org.apache.hadoop.conf.*;
-import org.apache.hadoop.util.ReflectionUtils;
-import org.apache.hadoop.util.Time;
+//import org.apache.hadoop.HadoopIllegalArgumentException;
+//import org.apache.hadoop.io.*;
+//import org.apache.hadoop.io.retry.RetryPolicy;
+//import org.apache.hadoop.ipc.Client.ConnectionId;
+//import org.apache.hadoop.ipc.protobuf.ProtocolInfoProtos.ProtocolInfoService;
+//import org.apache.hadoop.net.NetUtils;
+//import org.apache.hadoop.security.SaslRpcServer;
+//import org.apache.hadoop.security.UserGroupInformation;
+//import org.apache.hadoop.security.token.SecretManager;
+//import org.apache.hadoop.security.token.TokenIdentifier;
+//import org.apache.hadoop.conf.*;
+//import org.apache.hadoop.util.ReflectionUtils;
+//import org.apache.hadoop.util.Time;
 
 import com.google.protobuf.BlockingService;
 
@@ -73,7 +73,7 @@ import com.google.protobuf.BlockingService;
  * the protocol instance is transmitted.
  */
 public class RPC {
-  public enum RpcKind {
+  public enum Type {
     RPC_BUILTIN ((short) 1),         // Used for built in calls by tests
     RPC_WRITABLE ((short) 2),        // Use WritableRpcEngine 
     RPC_PROTOCOL_BUFFER ((short) 3); // Use ProtobufRpcEngine
@@ -81,7 +81,7 @@ public class RPC {
     private static final short FIRST_INDEX = RPC_BUILTIN.value;    
     public final short value; //TODO make it private
 
-    RpcKind(short val) {
+    Type(short val) {
       this.value = val;
     } 
   }
@@ -768,11 +768,11 @@ public class RPC {
    }
 
    ArrayList<Map<ProtoNameVer, ProtoClassProtoImpl>> protocolImplMapArray = 
-       new ArrayList<Map<ProtoNameVer, ProtoClassProtoImpl>>(RpcKind.MAX_INDEX);
+       new ArrayList<Map<ProtoNameVer, ProtoClassProtoImpl>>(Type.MAX_INDEX);
    
-   Map<ProtoNameVer, ProtoClassProtoImpl> getProtocolImplMap(RPC.RpcKind rpcKind) {
+   Map<ProtoNameVer, ProtoClassProtoImpl> getProtocolImplMap(RPC.Type rpcKind) {
      if (protocolImplMapArray.size() == 0) {// initialize for all rpc kinds
-       for (int i=0; i <= RpcKind.MAX_INDEX; ++i) {
+       for (int i=0; i <= Type.MAX_INDEX; ++i) {
          protocolImplMapArray.add(
              new HashMap<ProtoNameVer, ProtoClassProtoImpl>(10));
        }
@@ -781,7 +781,7 @@ public class RPC {
    }
    
    // Register  protocol and its impl for rpc calls
-   void registerProtocolAndImpl(RpcKind rpcKind, Class<?> protocolClass, 
+   void registerProtocolAndImpl(Type rpcKind, Class<?> protocolClass, 
        Object protocolImpl) throws IOException {
      String protocolName = RPC.getProtocolName(protocolClass);
      long version;
@@ -814,7 +814,7 @@ public class RPC {
    
    
    @SuppressWarnings("unused") // will be useful later.
-   VerProtocolImpl[] getSupportedProtocolVersions(RPC.RpcKind rpcKind,
+   VerProtocolImpl[] getSupportedProtocolVersions(RPC.Type rpcKind,
        String protocolName) {
      VerProtocolImpl[] resultk = 
          new  VerProtocolImpl[getProtocolImplMap(rpcKind).size()];
@@ -834,7 +834,7 @@ public class RPC {
      return result;
    }
    
-   VerProtocolImpl getHighestSupportedProtocol(RpcKind rpcKind, 
+   VerProtocolImpl getHighestSupportedProtocol(Type rpcKind, 
        String protocolName) {    
      Long highestVersion = 0L;
      ProtoClassProtoImpl highest = null;
@@ -876,7 +876,7 @@ public class RPC {
           new ProtocolMetaInfoServerSideTranslatorPB(this);
       BlockingService protocolInfoBlockingService = ProtocolInfoService
           .newReflectiveBlockingService(xlator);
-      addProtocol(RpcKind.RPC_PROTOCOL_BUFFER, ProtocolMetaInfoPB.class,
+      addProtocol(Type.RPC_PROTOCOL_BUFFER, ProtocolMetaInfoPB.class,
           protocolInfoBlockingService);
     }
     
@@ -886,14 +886,14 @@ public class RPC {
      * @param protocolImpl - the impl of the protocol that will be called
      * @return the server (for convenience)
      */
-    public Server addProtocol(RpcKind rpcKind, Class<?> protocolClass,
+    public Server addProtocol(Type rpcKind, Class<?> protocolClass,
         Object protocolImpl) throws IOException {
       registerProtocolAndImpl(rpcKind, protocolClass, protocolImpl);
       return this;
     }
     
     @Override
-    public Writable call(RPC.RpcKind rpcKind, String protocol,
+    public Writable call(RPC.Type rpcKind, String protocol,
         Writable rpcRequest, long receiveTime) throws Exception {
       return getRpcInvoker(rpcKind).call(this, protocol, rpcRequest,
           receiveTime);
