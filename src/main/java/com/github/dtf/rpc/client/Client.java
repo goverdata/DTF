@@ -29,6 +29,7 @@ import javax.net.SocketFactory;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+import com.github.dtf.conf.Configuration;
 import com.github.dtf.rpc.RPC;
 import com.github.dtf.rpc.Writable;
 import com.github.dtf.utils.NetUtils;
@@ -50,6 +51,10 @@ public class Client {
   private SocketFactory socketFactory;           // how to create sockets
   
   private int refCount = 1;
+
+  private Configuration conf;
+
+  private Class<? extends Writable> valueClass;
   
   /**
    * set the ping interval value in configuration
@@ -176,7 +181,6 @@ public class Client {
   public Writable call(Writable param, InetSocketAddress address)
   throws InterruptedException, IOException {
     return call(RPC.Type.RPC_BUILTIN, param, address);
-    
   }
   /**
    * Same as {@link #call(RPC.Type, Writable, InetSocketAddress, 
@@ -251,7 +255,7 @@ public class Client {
       }
 
       if (call.error != null) {
-        if (call.error instanceof RemoteException) {
+        /*if (call.error instanceof RemoteException) {
           call.error.fillInStackTrace();
           throw call.error;
         } else { // local exception
@@ -261,7 +265,8 @@ public class Client {
                   NetUtils.getHostname(),
                   0,
                   call.error);
-        }
+        }*/
+    	  return null;
       } else {
         return call.rpcResponse;
       }

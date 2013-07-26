@@ -7,6 +7,10 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
 
+import javax.net.SocketFactory;
+
+import com.github.dtf.conf.Configuration;
+
 public class NetUtils {
 
 	public static InputStream getInputStream(Socket socket) {
@@ -39,6 +43,11 @@ public class NetUtils {
 	public static void connect(Socket socket, InetSocketAddress server, int i) {
 		// TODO Auto-generated method stub
 		
+	}
+
+	public static SocketFactory getDefaultSocketFactory(Configuration conf) {
+		// TODO Auto-generated method stub
+		return null;
 	}
 
 }
