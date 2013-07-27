@@ -1,21 +1,3 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package com.github.dtf.rpc;
 
 import java.lang.reflect.Field;
@@ -27,7 +9,6 @@ import java.net.InetSocketAddress;
 import java.net.NoRouteToHostException;
 import java.net.SocketTimeoutException;
 import java.io.*;
-import java.io.Closeable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -52,6 +33,7 @@ import org.apache.commons.logging.*;
 //import org.apache.hadoop.util.ReflectionUtils;
 //import org.apache.hadoop.util.Time;
 
+import com.github.dtf.exception.HadoopIllegalArgumentException;
 import com.google.protobuf.BlockingService;
 
 /** A simple RPC mechanism.
@@ -627,30 +609,6 @@ public class RPC {
             + proxy.getClass());
   }
 
-  /** Construct a server for a protocol implementation instance listening on a
-   * port and address.
-   * @deprecated protocol interface should be passed.
-   */
-  @Deprecated
-  public static Server getServer(final Object instance, final String bindAddress, final int port, Configuration conf) 
-    throws IOException {
-    return getServer(instance, bindAddress, port, 1, false, conf);
-  }
-
-  /** Construct a server for a protocol implementation instance listening on a
-   * port and address.
-   * @deprecated protocol interface should be passed.
-   */
-  @Deprecated
-  public static Server getServer(final Object instance, final String bindAddress, final int port,
-                                 final int numHandlers,
-                                 final boolean verbose, Configuration conf) 
-    throws IOException {
-    return getServer(instance.getClass(),         // use impl class for protocol
-                     instance, bindAddress, port, numHandlers, false, conf, null,
-                     null);
-  }
-
   /** Construct a server for a protocol implementation instance. */
   public static Server getServer(Class<?> protocol,
                                  Object instance, String bindAddress,
@@ -660,20 +618,6 @@ public class RPC {
         null);
   }
 
-  /** Construct a server for a protocol implementation instance.
-   * @deprecated secretManager should be passed.
-   */
-  @Deprecated
-  public static Server getServer(Class<?> protocol,
-                                 Object instance, String bindAddress, int port,
-                                 int numHandlers,
-                                 boolean verbose, Configuration conf) 
-    throws IOException {
-    
-    return getServer(protocol, instance, bindAddress, port, numHandlers, verbose,
-                 conf, null, null);
-  }
-  
   /** Construct a server for a protocol implementation instance. */
   public static Server getServer(Class<?> protocol,
                                  Object instance, String bindAddress, int port,
@@ -714,7 +658,7 @@ public class RPC {
   }
 
   /** An RPC Server. */
-  public abstract static class Server extends org.apache.hadoop.ipc.Server {
+  public abstract static class Server extends com.github.dtf.rpc.server.Server {
    boolean verbose;
    static String classNameBase(String className) {
       String[] names = className.split("\\.", -1);

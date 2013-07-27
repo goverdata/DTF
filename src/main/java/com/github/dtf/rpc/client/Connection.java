@@ -25,8 +25,11 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+import com.github.dtf.conf.Configuration;
 import com.github.dtf.io.DataOutputBuffer;
 import com.github.dtf.rpc.Writable;
+import com.github.dtf.security.UserGroupInformation;
+import com.github.dtf.transport.RetryPolicy;
 import com.github.dtf.utils.IOUtils;
 import com.github.dtf.utils.NetUtils;
 
@@ -36,20 +39,20 @@ import com.github.dtf.utils.NetUtils;
  * socket: responses may be delivered out of order. */
 public class Connection extends Thread {
   public static final Log LOG = LogFactory.getLog(Connection.class);
-  
+  Client client;
   final static int PING_CALL_ID = -1;
-  final private Configuration conf;
+//  final private Configuration conf;
   private Class<? extends Writable> valueClass;   // class of call values
   private int counter;                            // counter for call ids
   
   private InetSocketAddress server;             // server ip:port
   private String serverPrincipal;  // server's krb5 principal name
-  private IpcConnectionContextProto connectionContext;   // connection context
+//  private IpcConnectionContextProto connectionContext;   // connection context
   private final ConnectionId remoteId;                // connection id
-  private AuthMethod authMethod; // authentication method
+//  private AuthMethod authMethod; // authentication method
   private boolean useSasl;
-  private Token<? extends TokenIdentifier> token;
-  private SaslRpcClient saslRpcClient;
+//  private Token<? extends TokenIdentifier> token;
+//  private SaslRpcClient saslRpcClient;
   
   private Socket socket = null;                 // connected socket
   private DataInputStream in;
@@ -57,7 +60,7 @@ public class Connection extends Thread {
   private int rpcTimeout;
   private int maxIdleTime; //connections will be culled if it was idle for 
   //maxIdleTime msecs
-  private final RetryPolicy connectionRetryPolicy;
+//  private final RetryPolicy connectionRetryPolicy;
   private int maxRetriesOnSocketTimeouts;
   private boolean tcpNoDelay; // if T then disable Nagle's Algorithm
   private boolean doPing; //do we need to send ping message
@@ -69,19 +72,21 @@ public class Connection extends Thread {
   private AtomicBoolean shouldCloseConnection = new AtomicBoolean();  // indicate if the connection is closed
   private IOException closeException; // close reason
 
-  public Connection(ConnectionId remoteId) throws IOException {
+  public Connection(Client client, ConnectionId remoteId) throws IOException {
+	this.client = client;
     this.remoteId = remoteId;
     this.server = remoteId.getAddress();
     if (server.isUnresolved()) {
-      throw NetUtils.wrapException(server.getHostName(),
+      /*throw NetUtils.wrapException(server.getHostName(),
           server.getPort(),
           null,
           0,
-          new UnknownHostException());
+          new UnknownHostException());*/
+    	throw new IOException();
     }
     this.rpcTimeout = remoteId.getRpcTimeout();
     this.maxIdleTime = remoteId.getMaxIdleTime();
-    this.connectionRetryPolicy = remoteId.connectionRetryPolicy;
+//    this.connectionRetryPolicy = remoteId.connectionRetryPolicy;
     this.maxRetriesOnSocketTimeouts = remoteId.getMaxRetriesOnSocketTimeouts();
     this.tcpNoDelay = remoteId.getTcpNoDelay();
     this.doPing = remoteId.getDoPing();
@@ -92,7 +97,7 @@ public class Connection extends Thread {
 
     UserGroupInformation ticket = remoteId.getTicket();
     Class<?> protocol = remoteId.getProtocol();
-    this.useSasl = UserGroupInformation.isSecurityEnabled();
+    /*this.useSasl = UserGroupInformation.isSecurityEnabled();
     if (useSasl && protocol != null) {
       TokenInfo tokenInfo = SecurityUtil.getTokenInfo(protocol, conf);
       if (tokenInfo != null) {
@@ -135,7 +140,7 @@ public class Connection extends Thread {
     
     this.setName("IPC Client (" + socketFactory.hashCode() +") connection to " +
         server.toString() +
-        " from " + ((ticket==null)?"an unknown user":ticket.getUserName()));
+        " from " + ((ticket==null)?"an unknown user":ticket.getUserName()));*/
     this.setDaemon(true);
   }
 
@@ -274,7 +279,7 @@ public class Connection extends Thread {
     short timeoutFailures = 0;
     while (true) {
       try {
-        this.socket = socketFactory.createSocket();
+        this.socket = client.getSocketFactory().createSocket();
         this.socket.setTcpNoDelay(tcpNoDelay);
         
         /*
@@ -282,7 +287,7 @@ public class Connection extends Thread {
          * client, to ensure Server matching address of the client connection
          * to host name in principal passed.
          */
-        if (UserGroupInformation.isSecurityEnabled()) {
+        /*if (UserGroupInformation.isSecurityEnabled()) {
           KerberosInfo krbInfo = 
             remoteId.getProtocol().getAnnotation(KerberosInfo.class);
           if (krbInfo != null && krbInfo.clientPrincipal() != null) {
@@ -295,7 +300,7 @@ public class Connection extends Thread {
               this.socket.bind(new InetSocketAddress(localAddr, 0));
             }
           }
-        }
+        }*/
         
         // connection time out is 20s
         NetUtils.connect(this.socket, server, 20000);
@@ -317,7 +322,8 @@ public class Connection extends Thread {
         if (updateAddress()) {
           timeoutFailures = ioFailures = 0;
         }
-        handleConnectionFailure(ioFailures++, ie);
+        // FIXME
+        //handleConnectionFailure(ioFailures++, ie);
       }
     }
   }
@@ -395,17 +401,19 @@ public class Connection extends Thread {
         setupConnection();
         InputStream inStream = NetUtils.getInputStream(socket);
         OutputStream outStream = NetUtils.getOutputStream(socket);
-        writeConnectionHeader(outStream);
+        // FIXME
+//        writeConnectionHeader(outStream);
         if (useSasl) {
           final InputStream in2 = inStream;
           final OutputStream out2 = outStream;
           UserGroupInformation ticket = remoteId.getTicket();
+          boolean continueSasl = false;
+          /*boolean continueSasl = false;
           if (authMethod == AuthMethod.KERBEROS) {
             if (ticket.getRealUser() != null) {
               ticket = ticket.getRealUser();
             }
           }
-          boolean continueSasl = false;
           try {
             continueSasl = ticket
                 .doAs(new PrivilegedExceptionAction<Boolean>() {
@@ -435,7 +443,7 @@ public class Connection extends Thread {
                 ProtoUtil.getUgi(connectionContext.getUserInfo()),
                 authMethod);
             useSasl = false;
-          }
+          }*/
         }
       
         if (doPing) {
@@ -445,14 +453,15 @@ public class Connection extends Thread {
           this.in = new DataInputStream(new BufferedInputStream(inStream));
         }
         this.out = new DataOutputStream(new BufferedOutputStream(outStream));
-        writeConnectionContext();
+        // FIXME
+        //writeConnectionContext();
 
         // update last activity time
-        touch();
+        //touch();
 
         // start the receiver thread after the socket connection has been set
         // up
-        start();
+        //start();
         return;
       }
     } catch (Throwable t) {
@@ -754,7 +763,7 @@ public class Connection extends Thread {
 
     // release the resources
     // first thing to do;take the connection out of the connection list
-    synchronized (connections) {
+    synchronized (client.getConnections()) {
       if (connections.get(remoteId) == this) {
         connections.remove(remoteId);
       }

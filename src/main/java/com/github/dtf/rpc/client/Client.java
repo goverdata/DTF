@@ -32,6 +32,7 @@ import org.apache.commons.logging.LogFactory;
 import com.github.dtf.conf.Configuration;
 import com.github.dtf.rpc.RPC;
 import com.github.dtf.rpc.Writable;
+import com.github.dtf.security.UserGroupInformation;
 import com.github.dtf.utils.NetUtils;
 
 /** A client for an IPC service.  IPC calls take a single {@link Writable} as a
@@ -63,7 +64,7 @@ public class Client {
    * @param pingInterval the ping interval
    */
   final public static void setPingInterval(Configuration conf, int pingInterval) {
-    conf.setInt(CommonConfigurationKeys.IPC_PING_INTERVAL_KEY, pingInterval);
+//    conf.setInt(CommonConfigurationKeys.IPC_PING_INTERVAL_KEY, pingInterval);
   }
 
   /**
@@ -74,8 +75,9 @@ public class Client {
    * @return the ping interval
    */
   final static int getPingInterval(Configuration conf) {
-    return conf.getInt(CommonConfigurationKeys.IPC_PING_INTERVAL_KEY,
-        CommonConfigurationKeys.IPC_PING_INTERVAL_DEFAULT);
+	  return 3000;
+//    return conf.getInt(CommonConfigurationKeys.IPC_PING_INTERVAL_KEY,
+//        CommonConfigurationKeys.IPC_PING_INTERVAL_DEFAULT);
   }
 
   /**
@@ -88,9 +90,9 @@ public class Client {
    * @return the timeout period in milliseconds. -1 if no timeout value is set
    */
   final public static int getTimeout(Configuration conf) {
-    if (!conf.getBoolean(CommonConfigurationKeys.IPC_CLIENT_PING_KEY, true)) {
-      return getPingInterval(conf);
-    }
+//    if (!conf.getBoolean(CommonConfigurationKeys.IPC_CLIENT_PING_KEY, true)) {
+//      return getPingInterval(conf);
+//    }
     return -1;
   }
   
@@ -178,10 +180,10 @@ public class Client {
    * Same as {@link #call(RPC.Type, Writable, ConnectionId)}
    *  for RPC_BUILTIN
    */
-  public Writable call(Writable param, InetSocketAddress address)
-  throws InterruptedException, IOException {
-    return call(RPC.Type.RPC_BUILTIN, param, address);
-  }
+//  public Writable call(Writable param, InetSocketAddress address)
+//  throws InterruptedException, IOException {
+//    return call(RPC.Type.RPC_BUILTIN, param, address);
+//  }
   /**
    * Same as {@link #call(RPC.Type, Writable, InetSocketAddress, 
    * Class, UserGroupInformation, int, Configuration)}
@@ -191,8 +193,9 @@ public class Client {
       Class<?> protocol, UserGroupInformation ticket,
       int rpcTimeout, Configuration conf)  
       throws InterruptedException, IOException {
-        ConnectionId remoteId = ConnectionId.getConnectionId(addr, protocol,
-        ticket, rpcTimeout, conf);
+//        ConnectionId remoteId = ConnectionId.getConnectionId(addr, protocol,
+//        ticket, rpcTimeout, conf);
+      ConnectionId remoteId = new ConnectionId(addr, protocol);
     return call(RPC.Type.RPC_BUILTIN, param, remoteId);
   }
   
@@ -298,7 +301,7 @@ public class Client {
       synchronized (connections) {
         connection = connections.get(remoteId);
         if (connection == null) {
-          connection = new Connection(remoteId);
+          connection = new Connection(this, remoteId);
           connections.put(remoteId, connection);
         }
       }
@@ -316,4 +319,8 @@ public class Client {
   synchronized int getCounter(){
 	return counter ++;  
   }
+
+	public Hashtable getConnections() {
+		return connections;
+	}
 }

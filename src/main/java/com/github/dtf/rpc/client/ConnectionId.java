@@ -4,11 +4,14 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.concurrent.TimeUnit;
 
-import com.github.dtf.rpc.client.Client.ConnectionId;
+import com.github.dtf.conf.CommonConfigurationKeys;
+import com.github.dtf.conf.Configuration;
+import com.github.dtf.security.UserGroupInformation;
+import com.github.dtf.transport.RetryPolicy;
 
-@InterfaceAudience.LimitedPrivate({"HDFS", "MapReduce"})
-@InterfaceStability.Evolving
-public static class ConnectionId {
+//@InterfaceAudience.LimitedPrivate({"HDFS", "MapReduce"})
+//@InterfaceStability.Evolving
+public class ConnectionId {
   InetSocketAddress address;
   UserGroupInformation ticket;
   final Class<?> protocol;
@@ -24,7 +27,20 @@ public static class ConnectionId {
   private final boolean doPing; //do we need to send ping message
   private final int pingInterval; // how often sends ping to the server in msecs
   
-  ConnectionId(InetSocketAddress address, Class<?> protocol, 
+  public ConnectionId(InetSocketAddress address, Class<?> protocol){
+	  this.address = address;
+	  this.protocol = protocol;
+	  rpcTimeout = 100;
+	  serverPrincipal = null;
+	  maxIdleTime = 100;
+	  connectionRetryPolicy = null;
+	  maxRetriesOnSocketTimeouts = 100;
+	  tcpNoDelay = false;
+	  doPing = false;
+	  pingInterval = 100;
+  }
+  
+  public ConnectionId(InetSocketAddress address, Class<?> protocol, 
                UserGroupInformation ticket, int rpcTimeout,
                String serverPrincipal, int maxIdleTime, 
                RetryPolicy connectionRetryPolicy, int maxRetriesOnSocketTimeouts,
@@ -42,27 +58,27 @@ public static class ConnectionId {
     this.pingInterval = pingInterval;
   }
   
-  InetSocketAddress getAddress() {
+  public InetSocketAddress getAddress() {
     return address;
   }
   
-  Class<?> getProtocol() {
+  public Class<?> getProtocol() {
     return protocol;
   }
   
-  UserGroupInformation getTicket() {
+  public UserGroupInformation getTicket() {
     return ticket;
   }
   
-  private int getRpcTimeout() {
+  public int getRpcTimeout() {
     return rpcTimeout;
   }
   
-  String getServerPrincipal() {
+  public String getServerPrincipal() {
     return serverPrincipal;
   }
   
-  int getMaxIdleTime() {
+  public int getMaxIdleTime() {
     return maxIdleTime;
   }
   
@@ -83,11 +99,11 @@ public static class ConnectionId {
     return pingInterval;
   }
   
-  static ConnectionId getConnectionId(InetSocketAddress addr,
-      Class<?> protocol, UserGroupInformation ticket, int rpcTimeout,
-      Configuration conf) throws IOException {
-    return getConnectionId(addr, protocol, ticket, rpcTimeout, null, conf);
-  }
+//  static ConnectionId getConnectionId(InetSocketAddress addr,
+//      Class<?> protocol, UserGroupInformation ticket, int rpcTimeout,
+//      Configuration conf) throws IOException {
+//    return getConnectionId(addr, protocol, ticket, rpcTimeout, null, conf);
+//  }
 
   /**
    * Returns a ConnectionId object. 
@@ -101,15 +117,15 @@ public static class ConnectionId {
    */
   static ConnectionId getConnectionId(InetSocketAddress addr,
       Class<?> protocol, UserGroupInformation ticket, int rpcTimeout,
-      RetryPolicy connectionRetryPolicy, Configuration conf) throws IOException {
+       Configuration conf) throws IOException {
 
-    if (connectionRetryPolicy == null) {
-      final int max = conf.getInt(
-          CommonConfigurationKeysPublic.IPC_CLIENT_CONNECT_MAX_RETRIES_KEY,
-          CommonConfigurationKeysPublic.IPC_CLIENT_CONNECT_MAX_RETRIES_DEFAULT);
-      connectionRetryPolicy = RetryPolicies.retryUpToMaximumCountWithFixedSleep(
-          max, 1, TimeUnit.SECONDS);
-    }
+//    if (connectionRetryPolicy == null) {
+//      final int max = conf.getInt(
+//          CommonConfigurationKeysPublic.IPC_CLIENT_CONNECT_MAX_RETRIES_KEY,
+//          CommonConfigurationKeysPublic.IPC_CLIENT_CONNECT_MAX_RETRIES_DEFAULT);
+//      connectionRetryPolicy = RetryPolicies.retryUpToMaximumCountWithFixedSleep(
+//          max, 1, TimeUnit.SECONDS);
+//    }
 
     String remotePrincipal = getRemotePrincipal(conf, addr, protocol);
     boolean doPing =
@@ -174,7 +190,9 @@ public static class ConnectionId {
   
   @Override
   public int hashCode() {
-    int result = connectionRetryPolicy.hashCode();
+		// int result = connectionRetryPolicy.hashCode();
+		// FIXME TEST
+    int result = 1024;
     result = PRIME * result + ((address == null) ? 0 : address.hashCode());
     result = PRIME * result + (doPing ? 1231 : 1237);
     result = PRIME * result + maxIdleTime;

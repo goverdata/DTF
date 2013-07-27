@@ -1,5 +1,6 @@
 package com.github.dtf.utils;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetAddress;
@@ -14,12 +15,23 @@ import com.github.dtf.conf.Configuration;
 public class NetUtils {
 
 	public static InputStream getInputStream(Socket socket) {
-		// TODO Auto-generated method stub
+		try {
+			return socket.getInputStream();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		return null;
 	}
 
 	public static OutputStream getOutputStream(Socket socket) {
 		// TODO Auto-generated method stub
+		try {
+			return socket.getOutputStream();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		return null;
 	}
 
@@ -41,13 +53,17 @@ public class NetUtils {
 	}
 
 	public static void connect(Socket socket, InetSocketAddress server, int i) {
-		// TODO Auto-generated method stub
-		
+		try {
+			socket.connect(server, i);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 
 	public static SocketFactory getDefaultSocketFactory(Configuration conf) {
 		// TODO Auto-generated method stub
-		return null;
+		return SocketFactory.getDefault();
 	}
 
 }
