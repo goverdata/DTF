@@ -33,6 +33,7 @@ import org.apache.commons.logging.*;
 //import org.apache.hadoop.util.ReflectionUtils;
 //import org.apache.hadoop.util.Time;
 
+import com.github.dtf.conf.Configuration;
 import com.github.dtf.exception.HadoopIllegalArgumentException;
 import com.google.protobuf.BlockingService;
 
