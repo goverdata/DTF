@@ -42,6 +42,14 @@ import org.apache.commons.logging.LogFactory;
 //import org.apache.hadoop.security.token.TokenIdentifier;
 //import org.apache.hadoop.util.Time;
 
+import com.github.dtf.conf.Configuration;
+import com.github.dtf.protocol.ProtocolProxy;
+import com.github.dtf.rpc.client.Client;
+import com.github.dtf.rpc.client.ConnectionId;
+import com.github.dtf.rpc.server.AbstractRpcServer;
+import com.github.dtf.security.UserGroupInformation;
+import com.github.dtf.transport.RetryPolicy;
+
 public class WritableRpcEngine implements RpcEngine {
 	  private static final Log LOG = LogFactory.getLog(RPC.class);
 	  
@@ -73,7 +81,7 @@ public class WritableRpcEngine implements RpcEngine {
 	   * Register the rpcRequest deserializer for WritableRpcEngine
 	   */
 	  private static synchronized void initialize() {
-	    org.apache.hadoop.ipc.Server.registerProtocolEngine(RPC.RpcKind.RPC_WRITABLE,
+		  com.github.dtf.rpc.server.AbstractServer.registerProtocolEngine(RPC.Type.RPC_WRITABLE,
 	        Invocation.class, new Server.WritableRpcInvoker());
 	    isInitialized = true;
 	  }
@@ -200,7 +208,7 @@ public class WritableRpcEngine implements RpcEngine {
 	  private static ClientCache CLIENTS=new ClientCache();
 	  
 	  private static class Invoker implements RpcInvocationHandler {
-	    private Client.ConnectionId remoteId;
+	    private ConnectionId remoteId;
 	    private Client client;
 	    private boolean isClosed = false;
 
@@ -208,7 +216,7 @@ public class WritableRpcEngine implements RpcEngine {
 	                   InetSocketAddress address, UserGroupInformation ticket,
 	                   Configuration conf, SocketFactory factory,
 	                   int rpcTimeout) throws IOException {
-	      this.remoteId = Client.ConnectionId.getConnectionId(address, protocol,
+	      this.remoteId = ConnectionId.getConnectionId(address, protocol,
 	          ticket, rpcTimeout, conf);
 	      this.client = CLIENTS.getClient(conf, factory);
 	    }
@@ -237,23 +245,21 @@ public class WritableRpcEngine implements RpcEngine {
 	      }
 	    }
 
-	    @Override
 	    public ConnectionId getConnectionId() {
 	      return remoteId;
 	    }
 	  }
 	  
-	  // for unit testing only
-	  @InterfaceAudience.Private
-	  @InterfaceStability.Unstable
-	  static Client getClient(Configuration conf) {
-	    return CLIENTS.getClient(conf);
-	  }
+//	  // for unit testing only
+//	  @InterfaceAudience.Private
+//	  @InterfaceStability.Unstable
+//	  static Client getClient(Configuration conf) {
+//	    return CLIENTS.getClient(conf);
+//	  }
 	  
 	  /** Construct a client-side proxy object that implements the named protocol,
 	   * talking to a server at the named address. 
 	   * @param <T>*/
-	  @Override
 	  @SuppressWarnings("unchecked")
 	  public <T> ProtocolProxy<T> getProxy(Class<T> protocol, long clientVersion,
 	                         InetSocketAddress addr, UserGroupInformation ticket,
@@ -274,38 +280,20 @@ public class WritableRpcEngine implements RpcEngine {
 	  
 	  /* Construct a server for a protocol implementation instance listening on a
 	   * port and address. */
-	  @Override
-	  public RPC.Server getServer(Class<?> protocolClass,
+	  public AbstractRpcServer getServer(Class<?> protocolClass,
 	                      Object protocolImpl, String bindAddress, int port,
 	                      int numHandlers, int numReaders, int queueSizePerHandler,
 	                      boolean verbose, Configuration conf,
-	                      SecretManager<? extends TokenIdentifier> secretManager,
 	                      String portRangeConfig) 
 	    throws IOException {
 	    return new Server(protocolClass, protocolImpl, conf, bindAddress, port,
-	        numHandlers, numReaders, queueSizePerHandler, verbose, secretManager,
+	        numHandlers, numReaders, queueSizePerHandler, verbose, 
 	        portRangeConfig);
 	  }
 
 
 	  /** An RPC Server. */
-	  public static class Server extends RPC.Server {
-	    /**
-	     * Construct an RPC server.
-	     * @param instance the instance whose methods will be called
-	     * @param conf the configuration to use
-	     * @param bindAddress the address to bind on to listen for connection
-	     * @param port the port to listen for connections on
-	     * 
-	     * @deprecated Use #Server(Class, Object, Configuration, String, int)    
-	     */
-	    @Deprecated
-	    public Server(Object instance, Configuration conf, String bindAddress,
-	        int port) throws IOException {
-	      this(null, instance, conf,  bindAddress, port);
-	    }
-	    
-	    
+	  public static class Server extends AbstractRpcServer {
 	    /** Construct an RPC server.
 	     * @param protocolClass class
 	     * @param protocolImpl the instance whose methods will be called
@@ -317,30 +305,7 @@ public class WritableRpcEngine implements RpcEngine {
 	        Configuration conf, String bindAddress, int port) 
 	      throws IOException {
 	      this(protocolClass, protocolImpl, conf,  bindAddress, port, 1, -1, -1,
-	          false, null, null);
-	    }
-	    
-	    /** 
-	     * Construct an RPC server.
-	     * @param protocolImpl the instance whose methods will be called
-	     * @param conf the configuration to use
-	     * @param bindAddress the address to bind on to listen for connection
-	     * @param port the port to listen for connections on
-	     * @param numHandlers the number of method handler threads to run
-	     * @param verbose whether each call should be logged
-	     * 
-	     * @deprecated use Server#Server(Class, Object, 
-	     *      Configuration, String, int, int, int, int, boolean, SecretManager)
-	     */
-	    @Deprecated
-	    public Server(Object protocolImpl, Configuration conf, String bindAddress,
-	        int port, int numHandlers, int numReaders, int queueSizePerHandler,
-	        boolean verbose, SecretManager<? extends TokenIdentifier> secretManager) 
-	            throws IOException {
-	       this(null, protocolImpl,  conf,  bindAddress,   port,
-	                   numHandlers,  numReaders,  queueSizePerHandler,  verbose, 
-	                   secretManager, null);
-	   
+	          false, null);
 	    }
 	    
 	    /** 
@@ -357,12 +322,12 @@ public class WritableRpcEngine implements RpcEngine {
 	    public Server(Class<?> protocolClass, Object protocolImpl,
 	        Configuration conf, String bindAddress,  int port,
 	        int numHandlers, int numReaders, int queueSizePerHandler, 
-	        boolean verbose, SecretManager<? extends TokenIdentifier> secretManager,
+	        boolean verbose,
 	        String portRangeConfig) 
 	        throws IOException {
 	      super(bindAddress, port, null, numHandlers, numReaders,
 	          queueSizePerHandler, conf,
-	          classNameBase(protocolImpl.getClass().getName()), secretManager,
+	          classNameBase(protocolImpl.getClass().getName()),
 	          portRangeConfig);
 
 	      this.verbose = verbose;
@@ -385,7 +350,7 @@ public class WritableRpcEngine implements RpcEngine {
 	              protocolImpl.getClass());
 	        }
 	        // register protocol class and its super interfaces
-	        registerProtocolAndImpl(RPC.RpcKind.RPC_WRITABLE, protocolClass, protocolImpl);
+	        registerProtocolAndImpl(RPC.Type.RPC_WRITABLE, protocolClass, protocolImpl);
 	        protocols = RPC.getProtocolInterfaces(protocolClass);
 	      }
 	      for (Class<?> p : protocols) {
@@ -505,12 +470,5 @@ public class WritableRpcEngine implements RpcEngine {
 	        }
 	      }
 	    }
-	  }
-
-	  @Override
-	  public ProtocolProxy<ProtocolMetaInfoPB> getProtocolMetaInfoProxy(
-	      ConnectionId connId, Configuration conf, SocketFactory factory)
-	      throws IOException {
-	    throw new UnsupportedOperationException("This proxy is not supported");
 	  }
 	}

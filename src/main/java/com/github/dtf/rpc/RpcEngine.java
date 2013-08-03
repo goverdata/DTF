@@ -7,6 +7,7 @@ import javax.net.SocketFactory;
 
 import com.github.dtf.conf.Configuration;
 import com.github.dtf.protocol.ProtocolProxy;
+import com.github.dtf.rpc.server.AbstractRpcServer;
 import com.github.dtf.rpc.server.Server;
 import com.github.dtf.security.UserGroupInformation;
 import com.github.dtf.transport.RetryPolicy;
@@ -40,7 +41,7 @@ public interface RpcEngine {
 	   * @return The Server instance
 	   * @throws IOException on any error
 	   */
-	  Server getServer(Class<?> protocol, Object instance, String bindAddress,
+	  AbstractRpcServer getServer(Class<?> protocol, Object instance, String bindAddress,
 	                       int port, int numHandlers, int numReaders,
 	                       int queueSizePerHandler, boolean verbose,
 	                       Configuration conf, 
@@ -56,7 +57,7 @@ public interface RpcEngine {
 	   * @return Proxy object.
 	   * @throws IOException
 	   */
-	  ProtocolProxy<ProtocolMetaInfoPB> getProtocolMetaInfoProxy(
+	  /*ProtocolProxy<ProtocolMetaInfoPB> getProtocolMetaInfoProxy(
 	      ConnectionId connId, Configuration conf, SocketFactory factory)
-	      throws IOException;
+	      throws IOException;*/
 	}

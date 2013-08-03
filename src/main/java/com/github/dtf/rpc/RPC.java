@@ -622,27 +622,27 @@ public class RPC {
         null);
   }
 
-  /** Construct a server for a protocol implementation instance. */
+  /** Construct a server for a protocol implementation instance. 
+   * FIXME: Removed SecuretManager
+   * */
   public static Server getServer(Class<?> protocol,
                                  Object instance, String bindAddress, int port,
                                  int numHandlers,
-                                 boolean verbose, Configuration conf,
-                                 SecretManager<? extends TokenIdentifier> secretManager) 
+                                 boolean verbose, Configuration conf) 
     throws IOException {
     return getServer(protocol, instance, bindAddress, port, numHandlers, verbose,
-        conf, secretManager, null);
+        conf, null);
   }
   
   public static Server getServer(Class<?> protocol,
       Object instance, String bindAddress, int port,
       int numHandlers,
       boolean verbose, Configuration conf,
-      SecretManager<? extends TokenIdentifier> secretManager,
       String portRangeConfig) 
   throws IOException {
     return getProtocolEngine(protocol, conf)
       .getServer(protocol, instance, bindAddress, port, numHandlers, -1, -1,
-                 verbose, conf, secretManager, portRangeConfig);
+                 verbose, conf, portRangeConfig);
   }
 
   /** Construct a server for a protocol implementation instance. */
@@ -652,7 +652,6 @@ public class RPC {
                                  IMPL instance, String bindAddress, int port,
                                  int numHandlers, int numReaders, int queueSizePerHandler,
                                  boolean verbose, Configuration conf
-//                                 ,SecretManager<? extends TokenIdentifier> secretManager
                                  ) 
     throws IOException {
     
