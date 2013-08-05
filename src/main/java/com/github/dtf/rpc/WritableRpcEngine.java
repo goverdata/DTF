@@ -44,6 +44,7 @@ import org.apache.commons.logging.LogFactory;
 
 import com.github.dtf.conf.Configuration;
 import com.github.dtf.protocol.ProtocolProxy;
+import com.github.dtf.rpc.RPC.RpcInvoker;
 import com.github.dtf.rpc.client.Client;
 import com.github.dtf.rpc.client.ConnectionId;
 import com.github.dtf.rpc.server.AbstractRpcServer;
@@ -369,8 +370,7 @@ public class WritableRpcEngine implements RpcEngine {
 	    
 	    static class WritableRpcInvoker implements RpcInvoker {
 
-	     @Override
-	      public Writable call(org.apache.hadoop.ipc.RPC.Server server,
+	     public Writable call(AbstractServer server,
 	          String protocolName, Writable rpcRequest, long receivedTime)
 	          throws IOException {
 	        try {

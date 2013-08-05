@@ -1,11 +1,5 @@
 package com.github.dtf.rpc.server;
 
-import java.nio.ByteBuffer;
-
-import com.github.dtf.rpc.RPC;
-import com.github.dtf.rpc.Writable;
-
-
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
@@ -29,7 +23,7 @@ import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.channels.WritableByteChannel;
-import java.security.PrivilegedExceptionAction;
+import java.security.AccessControlException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -43,49 +37,29 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 
-import javax.security.sasl.Sasl;
-import javax.security.sasl.SaslException;
-import javax.security.sasl.SaslServer;
-
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.hadoop.classification.InterfaceAudience;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.conf.Configuration.IntegerRanges;
-import org.apache.hadoop.fs.CommonConfigurationKeys;
-import org.apache.hadoop.fs.CommonConfigurationKeysPublic;
-import org.apache.hadoop.io.BytesWritable;
-import org.apache.hadoop.io.IntWritable;
-import org.apache.hadoop.io.Writable;
-import org.apache.hadoop.io.WritableUtils;
-import org.apache.hadoop.ipc.RPC.RpcInvoker;
-import org.apache.hadoop.ipc.RPC.VersionMismatch;
-import org.apache.hadoop.ipc.metrics.RpcDetailedMetrics;
-import org.apache.hadoop.ipc.metrics.RpcMetrics;
-import org.apache.hadoop.ipc.protobuf.IpcConnectionContextProtos.IpcConnectionContextProto;
-import org.apache.hadoop.ipc.protobuf.RpcPayloadHeaderProtos.*;
-import org.apache.hadoop.net.NetUtils;
-import org.apache.hadoop.security.AccessControlException;
-import org.apache.hadoop.security.SaslRpcServer;
-import org.apache.hadoop.security.SaslRpcServer.AuthMethod;
-import org.apache.hadoop.security.SaslRpcServer.SaslDigestCallbackHandler;
-import org.apache.hadoop.security.SaslRpcServer.SaslGssCallbackHandler;
-import org.apache.hadoop.security.SaslRpcServer.SaslStatus;
-import org.apache.hadoop.security.UserGroupInformation;
-import org.apache.hadoop.security.UserGroupInformation.AuthenticationMethod;
-import org.apache.hadoop.security.authorize.AuthorizationException;
-import org.apache.hadoop.security.authorize.PolicyProvider;
-import org.apache.hadoop.security.authorize.ProxyUsers;
-import org.apache.hadoop.security.authorize.ServiceAuthorizationManager;
-import org.apache.hadoop.security.token.SecretManager;
-import org.apache.hadoop.security.token.SecretManager.InvalidToken;
-import org.apache.hadoop.security.token.TokenIdentifier;
-import org.apache.hadoop.util.ProtoUtil;
-import org.apache.hadoop.util.ReflectionUtils;
-import org.apache.hadoop.util.StringUtils;
-import org.apache.hadoop.util.Time;
 
-import com.google.common.annotations.VisibleForTesting;
+import com.github.dtf.conf.CommonConfigurationKeys;
+import com.github.dtf.conf.CommonConfigurationKeysPublic;
+import com.github.dtf.conf.Configuration;
+import com.github.dtf.rpc.RPC;
+import com.github.dtf.rpc.RpcMetrics;
+import com.github.dtf.rpc.RPC.VersionMismatch;
+import com.github.dtf.rpc.RpcInvoker;
+import com.github.dtf.rpc.RpcPayloadHeaderProtos.RpcKindProto;
+import com.github.dtf.rpc.RpcPayloadHeaderProtos.RpcPayloadHeaderProto;
+import com.github.dtf.rpc.RpcPayloadHeaderProtos.RpcPayloadOperationProto;
+import com.github.dtf.rpc.RpcPayloadHeaderProtos.RpcResponseHeaderProto;
+import com.github.dtf.rpc.RpcPayloadHeaderProtos.RpcStatusProto;
+import com.github.dtf.rpc.Writable;
+import com.github.dtf.rpc.client.Client;
+import com.github.dtf.security.UserGroupInformation;
+import com.github.dtf.utils.NetUtils;
+import com.github.dtf.utils.ProtoUtil;
+import com.github.dtf.utils.ReflectionUtils;
+import com.github.dtf.utils.StringUtils;
+import com.github.dtf.utils.WritableUtils;
 
 /** An abstract IPC service.  IPC calls take a single {@link Writable} as a
  * parameter, and return a {@link Writable} as their value.  A service runs on
@@ -158,8 +132,8 @@ public abstract class AbstractServer implements Server{
       this.rpcRequestWrapperClass = rpcRequestWrapperClass;
     }   
   }
-  static Map<RPC.RpcKind, RpcKindMapValue> rpcKindMap = new
-      HashMap<RPC.RpcKind, RpcKindMapValue>(4);
+  static Map<RPC.Type, RpcKindMapValue> rpcKindMap = new
+      HashMap<RPC.Type, RpcKindMapValue>(4);
   
   
 
@@ -196,7 +170,7 @@ public abstract class AbstractServer implements Server{
     return (val == null) ? null : val.rpcRequestWrapperClass; 
   }
   
-  public static RpcInvoker  getRpcInvoker(RPC.RpcKind rpcKind) {
+  public static RpcInvoker  getRpcInvoker(RPC.Type rpcKind) {
     RpcKindMapValue val = rpcKindMap.get(rpcKind);
     return (val == null) ? null : val.rpcInvoker; 
   }
@@ -281,8 +255,8 @@ public abstract class AbstractServer implements Server{
   
   private Configuration conf;
   private String portRangeConfig = null;
-  private SecretManager<TokenIdentifier> secretManager;
-  private ServiceAuthorizationManager serviceAuthorizationManager = new ServiceAuthorizationManager();
+//  private SecretManager<TokenIdentifier> secretManager;
+//  private ServiceAuthorizationManager serviceAuthorizationManager = new ServiceAuthorizationManager();
 
   private int maxQueueSize;
   private final int maxRespSize;
@@ -352,17 +326,17 @@ public abstract class AbstractServer implements Server{
    * Returns a handle to the rpcMetrics (required in tests)
    * @return rpc metrics
    */
-  @VisibleForTesting
+  //@VisibleForTesting
   public RpcMetrics getRpcMetrics() {
     return rpcMetrics;
   }
 
-  @VisibleForTesting
+  //@VisibleForTesting
   public RpcDetailedMetrics getRpcDetailedMetrics() {
     return rpcDetailedMetrics;
   }
   
-  @VisibleForTesting
+  //@VisibleForTesting
   Iterable<? extends Thread> getHandlers() {
     return Arrays.asList(handlers);
   }
@@ -370,18 +344,18 @@ public abstract class AbstractServer implements Server{
   /**
    * Refresh the service authorization ACL for the service handled by this server.
    */
-  public void refreshServiceAcl(Configuration conf, PolicyProvider provider) {
+  /*public void refreshServiceAcl(Configuration conf, PolicyProvider provider) {
     serviceAuthorizationManager.refresh(conf, provider);
-  }
+  }*/
 
   /**
    * Returns a handle to the serviceAuthorizationManager (required in tests)
    * @return instance of ServiceAuthorizationManager for this server
    */
-  @InterfaceAudience.LimitedPrivate({"HDFS", "MapReduce"})
-  public ServiceAuthorizationManager getServiceAuthorizationManager() {
+  //@InterfaceAudience.LimitedPrivate({"HDFS", "MapReduce"})
+  /*public ServiceAuthorizationManager getServiceAuthorizationManager() {
     return serviceAuthorizationManager;
-  }
+  }*/
 
   /** A call queued for handling. */
   private static class Call {
@@ -391,16 +365,16 @@ public abstract class AbstractServer implements Server{
     private long timestamp;               // time received when response is null
                                           // time served when response is not null
     private ByteBuffer rpcResponse;       // the response for this call
-    private final RPC.RpcKind rpcKind;
+    private final RPC.Type rpcKind;
 
     public Call(int id, Writable param, Connection connection) {
-      this( id,  param,  connection, RPC.RpcKind.RPC_BUILTIN );    
+      this( id,  param,  connection, RPC.Type.RPC_BUILTIN );    
     }
-    public Call(int id, Writable param, Connection connection, RPC.RpcKind kind) { 
+    public Call(int id, Writable param, Connection connection, RPC.Type kind) { 
       this.callId = id;
       this.rpcRequest = param;
       this.connection = connection;
-      this.timestamp = Time.now();
+      this.timestamp = System.currentTimeMillis();
       this.rpcResponse = null;
       this.rpcKind = kind;
     }
@@ -550,7 +524,7 @@ public abstract class AbstractServer implements Server{
      */
     private void cleanupConnections(boolean force) {
       if (force || numConnections > thresholdIdleConnections) {
-        long currentTime = Time.now();
+        long currentTime = System.currentTimeMillis();
         if (!force && (currentTime - lastCleanupRunTime) < cleanupInterval) {
           return;
         }
@@ -586,14 +560,14 @@ public abstract class AbstractServer implements Server{
           }
           else i++;
         }
-        lastCleanupRunTime = Time.now();
+        lastCleanupRunTime = System.currentTimeMillis();
       }
     }
 
     @Override
     public void run() {
       LOG.info(getName() + ": starting");
-      SERVER.set(Server.this);
+      SERVER.set(AbstractServer.this);
       while (running) {
         SelectionKey key = null;
         try {
@@ -671,7 +645,7 @@ public abstract class AbstractServer implements Server{
         try {
           reader.startAdd();
           SelectionKey readKey = reader.registerChannel(channel);
-          c = new Connection(readKey, channel, Time.now());
+          c = new Connection(readKey, channel, System.currentTimeMillis());
           readKey.attach(c);
           synchronized (connectionList) {
             connectionList.add(numConnections, c);
@@ -693,7 +667,7 @@ public abstract class AbstractServer implements Server{
       if (c == null) {
         return;  
       }
-      c.setLastContact(Time.now());
+      c.setLastContact(System.currentTimeMillis());
       
       try {
         count = c.readAndProcess();
@@ -715,7 +689,7 @@ public abstract class AbstractServer implements Server{
         c = null;
       }
       else {
-        c.setLastContact(Time.now());
+        c.setLastContact(System.currentTimeMillis());
       }
     }   
 
@@ -736,7 +710,10 @@ public abstract class AbstractServer implements Server{
       }
     }
     
-    synchronized Selector getSelector() { return selector; }
+    synchronized Selector getSelector() { 
+    	return selector; 
+    }
+    
     // The method that will return the next reader to work with
     // Simplistic implementation of round robin for now
     Reader getReader() {
@@ -762,7 +739,7 @@ public abstract class AbstractServer implements Server{
     @Override
     public void run() {
       LOG.info(getName() + ": starting");
-      SERVER.set(Server.this);
+      SERVER.set(AbstractServer.this);
       try {
         doRunLoop();
       } finally {
@@ -794,7 +771,7 @@ public abstract class AbstractServer implements Server{
               LOG.info(getName() + ": doAsyncWrite threw exception " + e);
             }
           }
-          long now = Time.now();
+          long now = System.currentTimeMillis();
           if (now < lastPurgeTime + PURGE_INTERVAL) {
             continue;
           }
@@ -940,7 +917,7 @@ public abstract class AbstractServer implements Server{
             
             if (inHandler) {
               // set the serve time when the response has to be sent later
-              call.timestamp = Time.now();
+              call.timestamp = System.currentTimeMillis();
               
               incPending();
               try {
@@ -1023,17 +1000,17 @@ public abstract class AbstractServer implements Server{
     
     IpcConnectionContextProto connectionContext;
     String protocolName;
-    boolean useSasl;
-    SaslServer saslServer;
-    private AuthMethod authMethod;
-    private boolean saslContextEstablished;
+//    boolean useSasl;
+//    SaslServer saslServer;
+//    private AuthMethod authMethod;
+//    private boolean saslContextEstablished;
     private boolean skipInitialSaslHandshake;
     private ByteBuffer connectionHeaderBuf = null;
     private ByteBuffer unwrappedData;
     private ByteBuffer unwrappedDataLengthBuffer;
     
-    UserGroupInformation user = null;
-    public UserGroupInformation attemptingUser = null; // user name before auth
+//    UserGroupInformation user = null;
+//    public UserGroupInformation attemptingUser = null; // user name before auth
 
     // Fake 'call' for failed authorization response
     private static final int AUTHORIZATION_FAILED_CALLID = -1;
@@ -1117,7 +1094,7 @@ public abstract class AbstractServer implements Server{
       return false;
     }
     
-    private UserGroupInformation getAuthorizedUgi(String authorizedId)
+    /*private UserGroupInformation getAuthorizedUgi(String authorizedId)
         throws IOException {
       if (authMethod == SaslRpcServer.AuthMethod.DIGEST) {
         TokenIdentifier tokenId = SaslRpcServer.getIdentifier(authorizedId,
@@ -1263,7 +1240,7 @@ public abstract class AbstractServer implements Server{
         } catch (SaslException ignored) {
         }
       }
-    }
+    }*/
     
     public int readAndProcess() throws IOException, InterruptedException {
       while (true) {
@@ -1288,8 +1265,8 @@ public abstract class AbstractServer implements Server{
           }
           int version = connectionHeaderBuf.get(0);
           byte[] method = new byte[] {connectionHeaderBuf.get(1)};
-          authMethod = AuthMethod.read(new DataInputStream(
-              new ByteArrayInputStream(method)));
+//          authMethod = AuthMethod.read(new DataInputStream(
+//              new ByteArrayInputStream(method)));
           dataLengthBuffer.flip();
           
           // Check if it looks like the user is hitting an IPC port
@@ -1318,7 +1295,7 @@ public abstract class AbstractServer implements Server{
           }
           
           dataLengthBuffer.clear();
-          if (authMethod == null) {
+          /*if (authMethod == null) {
             throw new IOException("Unable to read authentication method");
           }
           if (isSecurityEnabled && authMethod == AuthMethod.SIMPLE) {
@@ -1344,7 +1321,7 @@ public abstract class AbstractServer implements Server{
           }
           if (authMethod != AuthMethod.SIMPLE) {
             useSasl = true;
-          }
+          }*/
           
           connectionHeaderBuf = null;
           connectionHeaderRead = true;
@@ -1378,11 +1355,11 @@ public abstract class AbstractServer implements Server{
             continue;
           }
           boolean isHeaderRead = connectionContextRead;
-          if (useSasl) {
-            saslReadAndProcess(data.array());
-          } else {
+//          if (useSasl) {
+            //saslReadAndProcess(data.array());
+//          } else {
             processOneRpc(data.array());
-          }
+//          }
           data = null;
           if (!isHeaderRead) {
             continue;
@@ -1452,37 +1429,37 @@ public abstract class AbstractServer implements Server{
       protocolName = connectionContext.hasProtocol() ? connectionContext
           .getProtocol() : null;
 
-      UserGroupInformation protocolUser = ProtoUtil.getUgi(connectionContext);
-      if (!useSasl) {
-        user = protocolUser;
-        if (user != null) {
-          user.setAuthenticationMethod(AuthMethod.SIMPLE.authenticationMethod);
-        }
-      } else {
-        // user is authenticated
-        user.setAuthenticationMethod(authMethod.authenticationMethod);
-        //Now we check if this is a proxy user case. If the protocol user is
-        //different from the 'user', it is a proxy user scenario. However, 
-        //this is not allowed if user authenticated with DIGEST.
-        if ((protocolUser != null)
-            && (!protocolUser.getUserName().equals(user.getUserName()))) {
-          if (authMethod == AuthMethod.DIGEST) {
-            // Not allowed to doAs if token authentication is used
-            throw new AccessControlException("Authenticated user (" + user
-                + ") doesn't match what the client claims to be ("
-                + protocolUser + ")");
-          } else {
-            // Effective user can be different from authenticated user
-            // for simple auth or kerberos auth
-            // The user is the real user. Now we create a proxy user
-            UserGroupInformation realUser = user;
-            user = UserGroupInformation.createProxyUser(protocolUser
-                .getUserName(), realUser);
-            // Now the user is a proxy user, set Authentication method Proxy.
-            user.setAuthenticationMethod(AuthenticationMethod.PROXY);
-          }
-        }
-      }
+//      UserGroupInformation protocolUser = ProtoUtil.getUgi(connectionContext);
+//      if (!useSasl) {
+//        user = protocolUser;
+//        if (user != null) {
+//          user.setAuthenticationMethod(AuthMethod.SIMPLE.authenticationMethod);
+//        }
+//      } else {
+//        // user is authenticated
+//        user.setAuthenticationMethod(authMethod.authenticationMethod);
+//        //Now we check if this is a proxy user case. If the protocol user is
+//        //different from the 'user', it is a proxy user scenario. However, 
+//        //this is not allowed if user authenticated with DIGEST.
+//        if ((protocolUser != null)
+//            && (!protocolUser.getUserName().equals(user.getUserName()))) {
+//          if (authMethod == AuthMethod.DIGEST) {
+//            // Not allowed to doAs if token authentication is used
+//            throw new AccessControlException("Authenticated user (" + user
+//                + ") doesn't match what the client claims to be ("
+//                + protocolUser + ")");
+//          } else {
+//            // Effective user can be different from authenticated user
+//            // for simple auth or kerberos auth
+//            // The user is the real user. Now we create a proxy user
+//            UserGroupInformation realUser = user;
+//            user = UserGroupInformation.createProxyUser(protocolUser
+//                .getUserName(), realUser);
+//            // Now the user is a proxy user, set Authentication method Proxy.
+//            user.setAuthenticationMethod(AuthenticationMethod.PROXY);
+//          }
+//        }
+//      }
     }
     
     private void processUnwrappedData(byte[] inBuf) throws IOException,
@@ -1531,11 +1508,11 @@ public abstract class AbstractServer implements Server{
       } else {
         processConnectionContext(buf);
         connectionContextRead = true;
-        if (!authorizeConnection()) {
-          throw new AccessControlException("Connection from " + this
-              + " for protocol " + connectionContext.getProtocol()
-              + " is unauthorized for user " + user);      
-        }
+//        if (!authorizeConnection()) {
+//          throw new AccessControlException("Connection from " + this
+//              + " for protocol " + connectionContext.getProtocol()
+//              + " is unauthorized for user " + user);      
+//        }
       }
     }
     
@@ -1599,7 +1576,7 @@ public abstract class AbstractServer implements Server{
       incRpcCount();  // Increment the rpc count
     }
 
-    private boolean authorizeConnection() throws IOException {
+    /*private boolean authorizeConnection() throws IOException {
       try {
         // If auth method is DIGEST, the token was obtained by the
         // real user for the effective user, therefore not required to
@@ -1622,10 +1599,10 @@ public abstract class AbstractServer implements Server{
         return false;
       }
       return true;
-    }
+    }*/
     
     private synchronized void close() throws IOException {
-      disposeSasl();
+      //disposeSasl();
       data = null;
       dataLengthBuffer = null;
       if (!channel.isOpen())
@@ -1650,7 +1627,7 @@ public abstract class AbstractServer implements Server{
     @Override
     public void run() {
       LOG.debug(getName() + ": starting");
-      SERVER.set(Server.this);
+      SERVER.set(AbstractServer.this);
       ByteArrayOutputStream buf = 
         new ByteArrayOutputStream(INITIAL_RESP_BUF_SIZE);
       while (running) {
@@ -1668,23 +1645,23 @@ public abstract class AbstractServer implements Server{
           try {
             // Make the call as the user via Subject.doAs, thus associating
             // the call with the Subject
-            if (call.connection.user == null) {
+//            if (call.connection.user == null) {
               value = call(call.rpcKind, call.connection.protocolName, call.rpcRequest, 
                            call.timestamp);
-            } else {
-              value = 
-                call.connection.user.doAs
-                  (new PrivilegedExceptionAction<Writable>() {
-                     @Override
-                     public Writable run() throws Exception {
-                       // make the call
-                       return call(call.rpcKind, call.connection.protocolName, 
-                                   call.rpcRequest, call.timestamp);
-
-                     }
-                   }
-                  );
-            }
+//            } else {
+//              value = 
+//                call.connection.user.doAs
+//                  (new PrivilegedExceptionAction<Writable>() {
+//                     @Override
+//                     public Writable run() throws Exception {
+//                       // make the call
+//                       return call(call.rpcKind, call.connection.protocolName, 
+//                                   call.rpcRequest, call.timestamp);
+//
+//                     }
+//                   }
+//                  );
+//            }
           } catch (Throwable e) {
             String logMsg = getName() + ", call " + call + ": error: " + e;
             if (e instanceof RuntimeException || e instanceof Error) {
@@ -1739,22 +1716,22 @@ public abstract class AbstractServer implements Server{
 
   }
   
-  protected Server(String bindAddress, int port,
+  protected AbstractServer(String bindAddress, int port,
                   Class<? extends Writable> paramClass, int handlerCount, 
                   Configuration conf)
     throws IOException 
   {
     this(bindAddress, port, paramClass, handlerCount, -1, -1, conf, Integer
-        .toString(port), null, null);
+        .toString(port));
   }
   
-  protected Server(String bindAddress, int port,
+  protected AbstractServer(String bindAddress, int port,
       Class<? extends Writable> rpcRequestClass, int handlerCount,
       int numReaders, int queueSizePerHandler, Configuration conf,
-      String serverName, SecretManager<? extends TokenIdentifier> secretManager)
+      String serverName)
     throws IOException {
     this(bindAddress, port, rpcRequestClass, handlerCount, numReaders, 
-        queueSizePerHandler, conf, serverName, secretManager, null);
+        queueSizePerHandler, conf, serverName, null);
   }
   
   /** 
@@ -1771,11 +1748,10 @@ public abstract class AbstractServer implements Server{
    * and usage.
    */
   @SuppressWarnings("unchecked")
-  protected Server(String bindAddress, int port,
+  protected AbstractServer(String bindAddress, int port,
       Class<? extends Writable> rpcRequestClass, int handlerCount,
       int numReaders, int queueSizePerHandler, Configuration conf,
-      String serverName, SecretManager<? extends TokenIdentifier> secretManager,
-      String portRangeConfig)
+      String serverName, String portRangeConfig)
     throws IOException {
     this.bindAddress = bindAddress;
     this.conf = conf;
@@ -1811,11 +1787,11 @@ public abstract class AbstractServer implements Server{
     this.thresholdIdleConnections = conf.getInt(
         CommonConfigurationKeysPublic.IPC_CLIENT_IDLETHRESHOLD_KEY,
         CommonConfigurationKeysPublic.IPC_CLIENT_IDLETHRESHOLD_DEFAULT);
-    this.secretManager = (SecretManager<TokenIdentifier>) secretManager;
-    this.authorize = 
-      conf.getBoolean(CommonConfigurationKeys.HADOOP_SECURITY_AUTHORIZATION, 
-                      false);
-    this.isSecurityEnabled = UserGroupInformation.isSecurityEnabled();
+//    this.secretManager = (SecretManager<TokenIdentifier>) secretManager;
+//    this.authorize = 
+//      conf.getBoolean(CommonConfigurationKeys.HADOOP_SECURITY_AUTHORIZATION, 
+//                      false);
+//    this.isSecurityEnabled = UserGroupInformation.isSecurityEnabled();
     
     // Start the listener here and let it bind to the port
     listener = new Listener();
@@ -1829,9 +1805,9 @@ public abstract class AbstractServer implements Server{
     // Create the responder here
     responder = new Responder();
     
-    if (isSecurityEnabled) {
-      SaslRpcServer.init(conf);
-    }
+//    if (isSecurityEnabled) {
+//      SaslRpcServer.init(conf);
+//    }
   }
 
   private void closeConnection(Connection connection) {
@@ -1890,9 +1866,9 @@ public abstract class AbstractServer implements Server{
       WritableUtils.writeString(out, errorClass);
       WritableUtils.writeString(out, error);
     }
-    if (call.connection.useWrap) {
-      wrapWithSasl(responseBuf, call);
-    }
+//    if (call.connection.useWrap) {
+//      wrapWithSasl(responseBuf, call);
+//    }
     call.setResponse(ByteBuffer.wrap(responseBuf.toByteArray()));
   }
   
@@ -1921,30 +1897,30 @@ public abstract class AbstractServer implements Server{
     WritableUtils.writeString(out, errorClass);
     WritableUtils.writeString(out, error);
 
-    if (call.connection.useWrap) {
-      wrapWithSasl(response, call);
-    }
+//    if (call.connection.useWrap) {
+//      wrapWithSasl(response, call);
+//    }
     call.setResponse(ByteBuffer.wrap(response.toByteArray()));
   }
   
-  private void wrapWithSasl(ByteArrayOutputStream response, Call call)
-      throws IOException {
-    if (call.connection.useSasl) {
-      byte[] token = response.toByteArray();
-      // synchronization may be needed since there can be multiple Handler
-      // threads using saslServer to wrap responses.
-      synchronized (call.connection.saslServer) {
-        token = call.connection.saslServer.wrap(token, 0, token.length);
-      }
-      if (LOG.isDebugEnabled())
-        LOG.debug("Adding saslServer wrapped token of size " + token.length
-            + " as call response.");
-      response.reset();
-      DataOutputStream saslOut = new DataOutputStream(response);
-      saslOut.writeInt(token.length);
-      saslOut.write(token, 0, token.length);
-    }
-  }
+//  private void wrapWithSasl(ByteArrayOutputStream response, Call call)
+//      throws IOException {
+//    if (call.connection.useSasl) {
+//      byte[] token = response.toByteArray();
+//      // synchronization may be needed since there can be multiple Handler
+//      // threads using saslServer to wrap responses.
+//      synchronized (call.connection.saslServer) {
+//        token = call.connection.saslServer.wrap(token, 0, token.length);
+//      }
+//      if (LOG.isDebugEnabled())
+//        LOG.debug("Adding saslServer wrapped token of size " + token.length
+//            + " as call response.");
+//      response.reset();
+//      DataOutputStream saslOut = new DataOutputStream(response);
+//      saslOut.writeInt(token.length);
+//      saslOut.write(token, 0, token.length);
+//    }
+//  }
   
   Configuration getConf() {
     return conf;
@@ -2016,18 +1992,8 @@ public abstract class AbstractServer implements Server{
     return listener.getAddress();
   }
   
-  /** 
-   * Called for each call. 
-   * @deprecated Use  {@link #call(RpcPayloadHeader.RpcKind, String,
-   *  Writable, long)} instead
-   */
-  @Deprecated
-  public Writable call(Writable param, long receiveTime) throws Exception {
-    return call(RPC.RpcKind.RPC_BUILTIN, null, param, receiveTime);
-  }
-  
   /** Called for each call. */
-  public abstract Writable call(RPC.RpcKind rpcKind, String protocol,
+  public abstract Writable call(RPC.Type rpcKind, String protocol,
       Writable param, long receiveTime) throws Exception;
   
   /**

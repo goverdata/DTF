@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import com.github.dtf.rpc.RPC;
+import com.github.dtf.rpc.Writable;
 
 
 
@@ -77,7 +78,7 @@ public abstract class AbstractRpcServer extends AbstractServer {
  }
  
  // Register  protocol and its impl for rpc calls
- void registerProtocolAndImpl(RPC.Type rpcKind, Class<?> protocolClass, 
+ protected void registerProtocolAndImpl(RPC.Type rpcKind, Class<?> protocolClass, 
      Object protocolImpl) throws IOException {
    String protocolName = RPC.getProtocolName(protocolClass);
    long version;
@@ -188,8 +189,7 @@ public abstract class AbstractRpcServer extends AbstractServer {
     return this;
   }
   
-  @Override
-  public Writable call(RPC.RpcKind rpcKind, String protocol,
+  public Writable call(RPC.Type rpcKind, String protocol,
       Writable rpcRequest, long receiveTime) throws Exception {
     return getRpcInvoker(rpcKind).call(this, protocol, rpcRequest,
         receiveTime);

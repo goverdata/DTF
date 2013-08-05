@@ -69,7 +69,7 @@ public class Connection {
     String protocolName;
     boolean useSasl;
     SaslServer saslServer;
-    private AuthMethod authMethod;
+//    private AuthMethod authMethod;
     private boolean saslContextEstablished;
     private boolean skipInitialSaslHandshake;
     private ByteBuffer connectionHeaderBuf = null;
