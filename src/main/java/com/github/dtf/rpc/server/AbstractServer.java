@@ -44,6 +44,7 @@ import com.github.dtf.conf.CommonConfigurationKeys;
 import com.github.dtf.conf.CommonConfigurationKeysPublic;
 import com.github.dtf.conf.Configuration;
 import com.github.dtf.rpc.RPC;
+import com.github.dtf.rpc.RpcDetailedMetrics;
 import com.github.dtf.rpc.RpcMetrics;
 import com.github.dtf.rpc.RPC.VersionMismatch;
 import com.github.dtf.rpc.RpcInvoker;
@@ -1941,14 +1942,14 @@ public abstract class AbstractServer implements Server{
 
   /** Starts the service.  Must be called before any calls will be handled. */
   public synchronized void start() {
-    responder.start();
+//    responder.start();
     listener.start();
-    handlers = new Handler[handlerCount];
+//    handlers = new Handler[handlerCount];
     
-    for (int i = 0; i < handlerCount; i++) {
-      handlers[i] = new Handler(i);
-      handlers[i].start();
-    }
+//    for (int i = 0; i < handlerCount; i++) {
+//      handlers[i] = new Handler(i);
+//      handlers[i].start();
+//    }
   }
 
   /** Stops the service.  No new calls will be handled after this is called. */
