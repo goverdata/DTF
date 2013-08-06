@@ -8,4 +8,9 @@ public class Configuration {
 		return 0;
 	}
 
+	public Class<?> getClassByName(String className) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
 }

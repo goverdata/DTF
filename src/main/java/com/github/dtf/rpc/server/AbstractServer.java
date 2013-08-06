@@ -43,7 +43,9 @@ import org.apache.commons.logging.LogFactory;
 import com.github.dtf.conf.CommonConfigurationKeys;
 import com.github.dtf.conf.CommonConfigurationKeysPublic;
 import com.github.dtf.conf.Configuration;
+import com.github.dtf.exception.IpcException;
 import com.github.dtf.rpc.RPC;
+import com.github.dtf.rpc.RpcDetailedMetrics;
 import com.github.dtf.rpc.RpcMetrics;
 import com.github.dtf.rpc.RPC.VersionMismatch;
 import com.github.dtf.rpc.RpcInvoker;
@@ -69,7 +71,7 @@ import com.github.dtf.utils.WritableUtils;
  */
 public abstract class AbstractServer implements Server{
   private final boolean authorize;
-  private boolean isSecurityEnabled;
+//  private boolean isSecurityEnabled;
   
   /**
    * The first four bytes of Hadoop RPC connections
@@ -264,6 +266,11 @@ public abstract class AbstractServer implements Server{
   private final boolean tcpNoDelay; // if T then disable Nagle's Algorithm
 
   volatile private boolean running = true;         // true while server runs
+  
+  public boolean isRunning(){
+	  return running;
+  }
+  
   private BlockingQueue<Call> callQueue; // queued calls
 
   private List<Connection> connectionList = 
@@ -998,7 +1005,7 @@ public abstract class AbstractServer implements Server{
     private int remotePort;
     private InetAddress addr;
     
-    IpcConnectionContextProto connectionContext;
+//    IpcConnectionContextProto connectionContext;
     String protocolName;
 //    boolean useSasl;
 //    SaslServer saslServer;
@@ -1669,10 +1676,6 @@ public abstract class AbstractServer implements Server{
               // on the server side, as opposed to just a normal exceptional
               // result.
               LOG.warn(logMsg, e);
-            } else if (e instanceof StandbyException) {
-              // Don't log the whole stack trace of these exceptions.
-              // Way too noisy!
-              LOG.info(logMsg);
             } else {
               LOG.info(logMsg, e);
             }
@@ -1860,7 +1863,7 @@ public abstract class AbstractServer implements Server{
       }
     } else {
       if (status == RpcStatusProto.FATAL) {
-        response.setServerIpcVersionNum(Server.CURRENT_VERSION);
+        response.setServerIpcVersionNum(AbstractServer.CURRENT_VERSION);
       }
       response.build().writeDelimitedTo(out);
       WritableUtils.writeString(out, errorClass);
@@ -1926,29 +1929,29 @@ public abstract class AbstractServer implements Server{
     return conf;
   }
   
-  /** for unit testing only, should be called before server is started */ 
-  void disableSecurity() {
-    this.isSecurityEnabled = false;
-  }
-  
-  /** for unit testing only, should be called before server is started */ 
-  void enableSecurity() {
-    this.isSecurityEnabled = true;
-  }
+//  /** for unit testing only, should be called before server is started */ 
+//  void disableSecurity() {
+//    this.isSecurityEnabled = false;
+//  }
+//  
+//  /** for unit testing only, should be called before server is started */ 
+//  void enableSecurity() {
+//    this.isSecurityEnabled = true;
+//  }
   
   /** Sets the socket buffer size used for responding to RPCs */
   public void setSocketSendBufSize(int size) { this.socketSendBufferSize = size; }
 
   /** Starts the service.  Must be called before any calls will be handled. */
   public synchronized void start() {
-    responder.start();
+//    responder.start();
     listener.start();
-    handlers = new Handler[handlerCount];
+//    handlers = new Handler[handlerCount];
     
-    for (int i = 0; i < handlerCount; i++) {
-      handlers[i] = new Handler(i);
-      handlers[i].start();
-    }
+//    for (int i = 0; i < handlerCount; i++) {
+//      handlers[i] = new Handler(i);
+//      handlers[i].start();
+//    }
   }
 
   /** Stops the service.  No new calls will be handled after this is called. */
@@ -1995,7 +1998,7 @@ public abstract class AbstractServer implements Server{
   /** Called for each call. */
   public abstract Writable call(RPC.Type rpcKind, String protocol,
       Writable param, long receiveTime) throws Exception;
-  
+
   /**
    * Authorize the incoming client connection.
    * 
@@ -2004,7 +2007,7 @@ public abstract class AbstractServer implements Server{
    * @param addr InetAddress of incoming connection
    * @throws AuthorizationException when the client isn't authorized to talk the protocol
    */
-  private void authorize(UserGroupInformation user, String protocolName,
+  /*private void authorize(UserGroupInformation user, String protocolName,
       InetAddress addr) throws AuthorizationException {
     if (authorize) {
       if (protocolName == null) {
@@ -2019,7 +2022,7 @@ public abstract class AbstractServer implements Server{
       }
       serviceAuthorizationManager.authorize(user, protocol, getConf(), addr);
     }
-  }
+  }*/
   
   /**
    * Get the port on which the IPC Server is listening for incoming connections.
@@ -2146,4 +2149,5 @@ public abstract class AbstractServer implements Server{
     int nBytes = initialRemaining - buf.remaining(); 
     return (nBytes > 0) ? nBytes : ret;
   }
+
 }
