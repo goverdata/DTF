@@ -5,7 +5,9 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
 import java.net.UnknownHostException;
 
 import javax.net.SocketFactory;
@@ -66,4 +68,17 @@ public class NetUtils {
 		return SocketFactory.getDefault();
 	}
 
+	public static void bind(ServerSocket socket, InetSocketAddress address,
+			int backlog)
+			throws IOException {
+		try {
+			socket.bind(address, backlog);
+		} catch (SocketException e) {
+			throw new IOException();
+			/*
+			 * throw NetUtils.wrapException(null, 0, address.getHostName(),
+			 * address.getPort(), e);
+			 */
+		}
+	}
 }

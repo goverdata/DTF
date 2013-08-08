@@ -155,7 +155,7 @@ public class Connection {
       rpcCount++;
     }
     
-    private boolean timedOut(long currentTime) {
+    boolean timedOut(long currentTime) {
       if (isIdle() && currentTime -  lastContact > maxIdleTime)
         return true;
       return false;
@@ -668,7 +668,7 @@ public class Connection {
       return true;
     }
     
-    private synchronized void close() throws IOException {
+    synchronized void close() throws IOException {
       disposeSasl();
       data = null;
       dataLengthBuffer = null;

@@ -1,0 +1,30 @@
+package com.github.dtf.rpc.server;
+
+import static org.powermock.api.mockito.PowerMockito.mock;
+import static org.powermock.api.mockito.PowerMockito.when;
+
+import java.io.IOException;
+import java.net.InetAddress;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.powermock.api.mockito.PowerMockito;
+
+public class ListenerTest {
+
+	Server server = null;
+	
+	@Before
+	public void init(){
+		server = mock(Server.class);
+	}
+	
+	@Test
+	public void test() throws IOException {
+		when(server.isRunning()).thenReturn(true);
+		InetAddress addr = InetAddress.getByName("localhost");
+		Listener lis = new Listener(server, addr, 2233, true);
+		lis.start();
+	}
+
+}
