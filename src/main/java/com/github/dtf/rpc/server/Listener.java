@@ -20,7 +20,7 @@ import com.github.dtf.utils.NetUtils;
 
 /** Listens on the socket. Creates jobs for the handler threads */
 public class Listener extends Thread {
-	     
+    public static final Log LOG = LogFactory.getLog(Listener.class);
 	// FIXME Modify it for test 10-->2
 	private int readThreads = 2; // number of read threads
 	private ServerSocketChannel acceptChannel = null; // the accept channel
@@ -310,7 +310,7 @@ public class Listener extends Thread {
 			try {
 				reader.startAdd();
 				SelectionKey readKey = reader.registerChannel(channel);
-				c = new Connection(readKey, channel, System.currentTimeMillis());
+				c = new Connection(this.server, readKey, channel, System.currentTimeMillis());
 				readKey.attach(c);
 				synchronized (connectionList) {
 					connectionList.add(numConnections, c);

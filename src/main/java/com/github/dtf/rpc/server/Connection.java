@@ -152,7 +152,7 @@ public class Connection {
       rpcCount++;
     }
     
-    private boolean timedOut(long currentTime) {
+    public boolean timedOut(long currentTime) {
       if (isIdle() && currentTime -  lastContact > maxIdleTime)
         return true;
       return false;
@@ -485,7 +485,7 @@ public class Connection {
       responder.doRespond(fakeCall);
     }
 
-    *//** Reads the connection context following the connection header *//*
+    /** Reads the connection context following the connection header */
     private void processConnectionContext(byte[] buf) throws IOException {
       DataInputStream in =
         new DataInputStream(new ByteArrayInputStream(buf));
@@ -665,7 +665,7 @@ public class Connection {
 //      return true;
 //    }
     
-    private synchronized void close() throws IOException {
+    public synchronized void close() throws IOException {
       //disposeSasl();
       data = null;
       dataLengthBuffer = null;
