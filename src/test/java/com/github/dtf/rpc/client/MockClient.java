@@ -11,7 +11,7 @@ public class MockClient {
 	
 	public static void main(String[] args) throws InterruptedException, IOException {
 		Client cli = new Client(null, null);
-		InetSocketAddress addr = new InetSocketAddress("localhost", 8181);
+		InetSocketAddress addr = new InetSocketAddress("localhost", 2233);
 		UserGroupInformation ticket = new UserGroupInformation();
 		Configuration conf = new Configuration();
 		TestParam param = new TestParam();

@@ -70,7 +70,7 @@ import com.github.dtf.utils.WritableUtils;
  * @see Client
  */
 public abstract class AbstractServer implements Server{
-  private final boolean authorize;
+//  private final boolean authorize;
 //  private boolean isSecurityEnabled;
   
   /**
@@ -244,13 +244,7 @@ public abstract class AbstractServer implements Server{
   private Class<? extends Writable> rpcRequestClass;   // class used for deserializing the rpc request
   private int maxIdleTime;                        // the maximum idle time after 
                                                   // which a client may be disconnected
-  private int thresholdIdleConnections;           // the number of idle connections
-                                                  // after which we will start
-                                                  // cleaning up idle 
-                                                  // connections
-  int maxConnectionsToNuke;                       // the max number of 
-                                                  // connections to nuke
-                                                  //during a cleanup
+  
   
   protected RpcMetrics rpcMetrics;
   protected RpcDetailedMetrics rpcDetailedMetrics;
@@ -322,10 +316,11 @@ public abstract class AbstractServer implements Server{
         }
       }
     } catch (SocketException e) {
-      throw NetUtils.wrapException(null,
+    	throw new IOException();
+      /*throw NetUtils.wrapException(null,
           0,
           address.getHostName(),
-          address.getPort(), e);
+          address.getPort(), e);*/
     }
   }
   
@@ -365,10 +360,10 @@ public abstract class AbstractServer implements Server{
   }*/
 
   /** A call queued for handling. */
-  private static class Call {
+  public static class Call {
     private final int callId;             // the client's call id
     private final Writable rpcRequest;    // Serialized Rpc request from client
-    private final Connection connection;  // connection to client
+    final Connection connection;  // connection to client
     private long timestamp;               // time received when response is null
                                           // time served when response is not null
     private ByteBuffer rpcResponse;       // the response for this call
@@ -396,7 +391,9 @@ public abstract class AbstractServer implements Server{
     }
   }
 
-  /** Listens on the socket. Creates jobs for the handler threads*/
+/*  
+  
+  *//** Listens on the socket. Creates jobs for the handler threads*//*
   private class Listener extends Thread {
     
     private ServerSocketChannel acceptChannel = null; //the accept channel
@@ -491,13 +488,13 @@ public abstract class AbstractServer implements Server{
         }
       }
 
-      /**
+      *//**
        * This gets reader into the state that waits for the new channel
        * to be registered with readSelector. If it was waiting in select()
        * the thread will be woken up, otherwise whenever select() is called
        * it will return even if there is nothing to read and wait
        * in while(adding) for finishAdd call
-       */
+       *//*
       public void startAdd() {
         adding = true;
         readSelector.wakeup();
@@ -523,12 +520,12 @@ public abstract class AbstractServer implements Server{
         }
       }
     }
-    /** cleanup connections from connectionList. Choose a random range
+    *//** cleanup connections from connectionList. Choose a random range
      * to scan and also have a limit on the number of the connections
      * that will be cleanedup per run. The criteria for cleanup is the time
      * for which the connection was idle. If 'force' is true then all 
      * connections will be looked at for the cleanup.
-     */
+     *//*
     private void cleanupConnections(boolean force) {
       if (force || numConnections > thresholdIdleConnections) {
         long currentTime = System.currentTimeMillis();
@@ -729,6 +726,9 @@ public abstract class AbstractServer implements Server{
     }
   }
 
+
+ */ 
+  
   // Sends responses of RPC back to clients.
   private class Responder extends Thread {
     private final Selector writeSelector;
@@ -985,7 +985,8 @@ public abstract class AbstractServer implements Server{
     }
   }
 
-  /** Reads calls from a connection and queues them for handling. */
+  /*
+  *//** Reads calls from a connection and queues them for handling. *//*
   public class Connection {
     private boolean connectionHeaderRead = false; // connection  header is read?
     private boolean connectionContextRead = false; //if connection context that
@@ -1080,17 +1081,17 @@ public abstract class AbstractServer implements Server{
       return lastContact;
     }
 
-    /* Return true if the connection has no outstanding rpc */
+     Return true if the connection has no outstanding rpc 
     private boolean isIdle() {
       return rpcCount == 0;
     }
     
-    /* Decrement the outstanding RPC count */
+     Decrement the outstanding RPC count 
     private void decRpcCount() {
       rpcCount--;
     }
     
-    /* Increment the outstanding RPC count */
+     Increment the outstanding RPC count 
     private void incRpcCount() {
       rpcCount++;
     }
@@ -1101,7 +1102,7 @@ public abstract class AbstractServer implements Server{
       return false;
     }
     
-    /*private UserGroupInformation getAuthorizedUgi(String authorizedId)
+    private UserGroupInformation getAuthorizedUgi(String authorizedId)
         throws IOException {
       if (authMethod == SaslRpcServer.AuthMethod.DIGEST) {
         TokenIdentifier tokenId = SaslRpcServer.getIdentifier(authorizedId,
@@ -1247,13 +1248,13 @@ public abstract class AbstractServer implements Server{
         } catch (SaslException ignored) {
         }
       }
-    }*/
+    }
     
     public int readAndProcess() throws IOException, InterruptedException {
       while (true) {
-        /* Read at most one RPC. If the header is not read completely yet
+         Read at most one RPC. If the header is not read completely yet
          * then iterate until we read first RPC or until there is no data left.
-         */    
+             
         int count = -1;
         if (dataLengthBuffer.remaining() > 0) {
           count = channelRead(channel, dataLengthBuffer);       
@@ -1302,7 +1303,7 @@ public abstract class AbstractServer implements Server{
           }
           
           dataLengthBuffer.clear();
-          /*if (authMethod == null) {
+          if (authMethod == null) {
             throw new IOException("Unable to read authentication method");
           }
           if (isSecurityEnabled && authMethod == AuthMethod.SIMPLE) {
@@ -1328,7 +1329,7 @@ public abstract class AbstractServer implements Server{
           }
           if (authMethod != AuthMethod.SIMPLE) {
             useSasl = true;
-          }*/
+          }
           
           connectionHeaderBuf = null;
           connectionHeaderRead = true;
@@ -1376,14 +1377,14 @@ public abstract class AbstractServer implements Server{
       }
     }
 
-    /**
+    *//**
      * Try to set up the response to indicate that the client version
      * is incompatible with the server. This can contain special-case
      * code to speak enough of past IPC protocols to pass back
      * an exception to the caller.
      * @param clientVersion the version the caller is using 
      * @throws IOException
-     */
+     *//*
     private void setupBadVersionResponse(int clientVersion) throws IOException {
       String errMsg = "Server IPC version " + CURRENT_VERSION +
       " cannot communicate with client version " + clientVersion;
@@ -1428,7 +1429,7 @@ public abstract class AbstractServer implements Server{
       responder.doRespond(fakeCall);
     }
 
-    /** Reads the connection context following the connection header */
+    *//** Reads the connection context following the connection header *//*
     private void processConnectionContext(byte[] buf) throws IOException {
       DataInputStream in =
         new DataInputStream(new ByteArrayInputStream(buf));
@@ -1583,7 +1584,7 @@ public abstract class AbstractServer implements Server{
       incRpcCount();  // Increment the rpc count
     }
 
-    /*private boolean authorizeConnection() throws IOException {
+    private boolean authorizeConnection() throws IOException {
       try {
         // If auth method is DIGEST, the token was obtained by the
         // real user for the effective user, therefore not required to
@@ -1606,7 +1607,7 @@ public abstract class AbstractServer implements Server{
         return false;
       }
       return true;
-    }*/
+    }
     
     private synchronized void close() throws IOException {
       //disposeSasl();
@@ -1624,6 +1625,7 @@ public abstract class AbstractServer implements Server{
     }
   }
 
+  
   /** Handles queued calls . */
   private class Handler extends Thread {
     public Handler(int instanceNumber) {
@@ -1813,7 +1815,7 @@ public abstract class AbstractServer implements Server{
 //    }
   }
 
-  private void closeConnection(Connection connection) {
+  public void closeConnection(Connection connection) {
     synchronized (connectionList) {
       if (connectionList.remove(connection))
         numConnections--;
@@ -1944,7 +1946,7 @@ public abstract class AbstractServer implements Server{
 
   /** Starts the service.  Must be called before any calls will be handled. */
   public synchronized void start() {
-//    responder.start();
+    responder.start();
     listener.start();
 //    handlers = new Handler[handlerCount];
     
@@ -2148,6 +2150,10 @@ public abstract class AbstractServer implements Server{
 
     int nBytes = initialRemaining - buf.remaining(); 
     return (nBytes > 0) ? nBytes : ret;
+  }
+  
+  public List<Connection> getConnectionList(){
+	  return connectionList;
   }
 
 }

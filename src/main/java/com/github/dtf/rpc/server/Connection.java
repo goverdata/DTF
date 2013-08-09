@@ -1,5 +1,6 @@
 package com.github.dtf.rpc.server;
 
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
@@ -12,49 +13,41 @@ import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
-import java.security.PrivilegedExceptionAction;
+import java.security.AccessControlException;
 import java.util.LinkedList;
 
-import javax.security.sasl.Sasl;
-import javax.security.sasl.SaslException;
-import javax.security.sasl.SaslServer;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 
-//import org.apache.hadoop.fs.CommonConfigurationKeys;
-//import org.apache.hadoop.io.BytesWritable;
-//import org.apache.hadoop.io.IntWritable;
-//import org.apache.hadoop.io.Writable;
-//import org.apache.hadoop.io.WritableUtils;
-//import org.apache.hadoop.ipc.Client;
-//import org.apache.hadoop.ipc.IpcConnectionContextProto;
-//import org.apache.hadoop.ipc.IpcException;
-//import org.apache.hadoop.ipc.RpcPayloadHeaderProto;
-//import org.apache.hadoop.ipc.RPC.VersionMismatch;
-//import org.apache.hadoop.ipc.Server.Call;
-//import org.apache.hadoop.ipc.Server.IpcSerializationType;
-//import org.apache.hadoop.security.AccessControlException;
-//import org.apache.hadoop.security.SaslRpcServer;
-//import org.apache.hadoop.security.UserGroupInformation;
-//import org.apache.hadoop.security.SaslRpcServer.AuthMethod;
-//import org.apache.hadoop.security.SaslRpcServer.SaslDigestCallbackHandler;
-//import org.apache.hadoop.security.SaslRpcServer.SaslGssCallbackHandler;
-//import org.apache.hadoop.security.SaslRpcServer.SaslStatus;
-//import org.apache.hadoop.security.UserGroupInformation.AuthenticationMethod;
-//import org.apache.hadoop.security.authorize.AuthorizationException;
-//import org.apache.hadoop.security.authorize.ProxyUsers;
-//import org.apache.hadoop.security.token.TokenIdentifier;
-//import org.apache.hadoop.security.token.SecretManager.InvalidToken;
-//import org.apache.hadoop.util.ProtoUtil;
-//import org.apache.hadoop.util.ReflectionUtils;
+import com.github.dtf.conf.CommonConfigurationKeys;
+import com.github.dtf.exception.IpcException;
+import com.github.dtf.rpc.RPC.VersionMismatch;
+import com.github.dtf.rpc.RpcPayloadHeaderProtos.RpcPayloadHeaderProto;
+import com.github.dtf.rpc.RpcPayloadHeaderProtos.RpcPayloadOperationProto;
+import com.github.dtf.rpc.RpcPayloadHeaderProtos.RpcStatusProto;
+import com.github.dtf.rpc.Writable;
+import com.github.dtf.rpc.client.Client;
+import com.github.dtf.rpc.server.AbstractServer.IpcSerializationType;
+import com.github.dtf.utils.ProtoUtil;
+import com.github.dtf.utils.ReflectionUtils;
+import com.github.dtf.utils.WritableUtils;
 
 public class Connection {
+	public static final Log LOG = LogFactory.getLog(Connection.class);
     private boolean connectionHeaderRead = false; // connection  header is read?
     private boolean connectionContextRead = false; //if connection context that
                                             //follows connection header is read
-
+    /**
+     * If the user accidentally sends an HTTP GET to an IPC port, we detect this
+     * and send back a nicer response.
+     */
+    private static final ByteBuffer HTTP_GET_BYTES = ByteBuffer.wrap(
+        "GET ".getBytes());
+    
     private SocketChannel channel;
     private ByteBuffer data;
     private ByteBuffer dataLengthBuffer;
-    private LinkedList<Call> responseQueue;
+    LinkedList<Call> responseQueue;
     private volatile int rpcCount = 0; // number of outstanding rpcs
     private long lastContact;
     private int dataLength;
@@ -64,20 +57,22 @@ public class Connection {
     private String hostAddress;
     private int remotePort;
     private InetAddress addr;
-    
-    IpcConnectionContextProto connectionContext;
+    private int socketSendBufferSize;
+    private int maxIdleTime;                        // the maximum idle time after 
+                                                    // which a client may be disconnected
+//    IpcConnectionContextProto connectionContext;
     String protocolName;
-    boolean useSasl;
-    SaslServer saslServer;
+//    boolean useSasl;
+//    SaslServer saslServer;
 //    private AuthMethod authMethod;
-    private boolean saslContextEstablished;
+//    private boolean saslContextEstablished;
     private boolean skipInitialSaslHandshake;
     private ByteBuffer connectionHeaderBuf = null;
     private ByteBuffer unwrappedData;
     private ByteBuffer unwrappedDataLengthBuffer;
     
-    UserGroupInformation user = null;
-    public UserGroupInformation attemptingUser = null; // user name before auth
+//    UserGroupInformation user = null;
+//    public UserGroupInformation attemptingUser = null; // user name before auth
 
     // Fake 'call' for failed authorization response
     private static final int AUTHORIZATION_FAILED_CALLID = -1;
@@ -91,9 +86,11 @@ public class Connection {
     private final ByteArrayOutputStream saslResponse = new ByteArrayOutputStream();
     
     private boolean useWrap = false;
+    Server server;
     
-    public Connection(SelectionKey key, SocketChannel channel, 
+    public Connection(Server server, SelectionKey key, SocketChannel channel, 
                       long lastContact) {
+      this.server =server;
       this.channel = channel;
       this.lastContact = lastContact;
       this.data = null;
@@ -140,17 +137,17 @@ public class Connection {
       return lastContact;
     }
 
-    /* Return true if the connection has no outstanding rpc */
+    /*Return true if the connection has no outstanding rpc */
     private boolean isIdle() {
       return rpcCount == 0;
     }
     
-    /* Decrement the outstanding RPC count */
+    /*Decrement the outstanding RPC count */
     private void decRpcCount() {
       rpcCount--;
     }
     
-    /* Increment the outstanding RPC count */
+    /*Increment the outstanding RPC count */
     private void incRpcCount() {
       rpcCount++;
     }
@@ -161,159 +158,159 @@ public class Connection {
       return false;
     }
     
-    private UserGroupInformation getAuthorizedUgi(String authorizedId)
-        throws IOException {
-      if (authMethod == SaslRpcServer.AuthMethod.DIGEST) {
-        TokenIdentifier tokenId = SaslRpcServer.getIdentifier(authorizedId,
-            secretManager);
-        UserGroupInformation ugi = tokenId.getUser();
-        if (ugi == null) {
-          throw new AccessControlException(
-              "Can't retrieve username from tokenIdentifier.");
-        }
-        ugi.addTokenIdentifier(tokenId);
-        return ugi;
-      } else {
-        return UserGroupInformation.createRemoteUser(authorizedId);
-      }
-    }
+//    private UserGroupInformation getAuthorizedUgi(String authorizedId)
+//        throws IOException {
+//      if (authMethod == SaslRpcServer.AuthMethod.DIGEST) {
+//        TokenIdentifier tokenId = SaslRpcServer.getIdentifier(authorizedId,
+//            secretManager);
+//        UserGroupInformation ugi = tokenId.getUser();
+//        if (ugi == null) {
+//          throw new AccessControlException(
+//              "Can't retrieve username from tokenIdentifier.");
+//        }
+//        ugi.addTokenIdentifier(tokenId);
+//        return ugi;
+//      } else {
+//        return UserGroupInformation.createRemoteUser(authorizedId);
+//      }
+//    }
 
-    private void saslReadAndProcess(byte[] saslToken) throws IOException,
-        InterruptedException {
-      if (!saslContextEstablished) {
-        byte[] replyToken = null;
-        try {
-          if (saslServer == null) {
-            switch (authMethod) {
-            case DIGEST:
-              if (secretManager == null) {
-                throw new AccessControlException(
-                    "Server is not configured to do DIGEST authentication.");
-              }
-              secretManager.checkAvailableForRead();
-              saslServer = Sasl.createSaslServer(AuthMethod.DIGEST
-                  .getMechanismName(), null, SaslRpcServer.SASL_DEFAULT_REALM,
-                  SaslRpcServer.SASL_PROPS, new SaslDigestCallbackHandler(
-                      secretManager, this));
-              break;
-            default:
-              UserGroupInformation current = UserGroupInformation
-                  .getCurrentUser();
-              String fullName = current.getUserName();
-              if (LOG.isDebugEnabled())
-                LOG.debug("Kerberos principal name is " + fullName);
-              final String names[] = SaslRpcServer.splitKerberosName(fullName);
-              if (names.length != 3) {
-                throw new AccessControlException(
-                    "Kerberos principal name does NOT have the expected "
-                        + "hostname part: " + fullName);
-              }
-              current.doAs(new PrivilegedExceptionAction<Object>() {
-                @Override
-                public Object run() throws SaslException {
-                  saslServer = Sasl.createSaslServer(AuthMethod.KERBEROS
-                      .getMechanismName(), names[0], names[1],
-                      SaslRpcServer.SASL_PROPS, new SaslGssCallbackHandler());
-                  return null;
-                }
-              });
-            }
-            if (saslServer == null)
-              throw new AccessControlException(
-                  "Unable to find SASL server implementation for "
-                      + authMethod.getMechanismName());
-            if (LOG.isDebugEnabled())
-              LOG.debug("Created SASL server with mechanism = "
-                  + authMethod.getMechanismName());
-          }
-          if (LOG.isDebugEnabled())
-            LOG.debug("Have read input token of size " + saslToken.length
-                + " for processing by saslServer.evaluateResponse()");
-          replyToken = saslServer.evaluateResponse(saslToken);
-        } catch (IOException e) {
-          IOException sendToClient = e;
-          Throwable cause = e;
-          while (cause != null) {
-            if (cause instanceof InvalidToken) {
-              sendToClient = (InvalidToken) cause;
-              break;
-            }
-            cause = cause.getCause();
-          }
-          doSaslReply(SaslStatus.ERROR, null, sendToClient.getClass().getName(), 
-              sendToClient.getLocalizedMessage());
-          rpcMetrics.incrAuthenticationFailures();
-          String clientIP = this.toString();
-          // attempting user could be null
-          AUDITLOG.warn(AUTH_FAILED_FOR + clientIP + ":" + attemptingUser);
-          throw e;
-        }
-        if (replyToken != null) {
-          if (LOG.isDebugEnabled())
-            LOG.debug("Will send token of size " + replyToken.length
-                + " from saslServer.");
-          doSaslReply(SaslStatus.SUCCESS, new BytesWritable(replyToken), null,
-              null);
-        }
-        if (saslServer.isComplete()) {
-          if (LOG.isDebugEnabled()) {
-            LOG.debug("SASL server context established. Negotiated QoP is "
-                + saslServer.getNegotiatedProperty(Sasl.QOP));
-          }
-          String qop = (String) saslServer.getNegotiatedProperty(Sasl.QOP);
-          useWrap = qop != null && !"auth".equalsIgnoreCase(qop);
-          user = getAuthorizedUgi(saslServer.getAuthorizationID());
-          if (LOG.isDebugEnabled()) {
-            LOG.debug("SASL server successfully authenticated client: " + user);
-          }
-          rpcMetrics.incrAuthenticationSuccesses();
-          AUDITLOG.info(AUTH_SUCCESSFUL_FOR + user);
-          saslContextEstablished = true;
-        }
-      } else {
-        if (LOG.isDebugEnabled())
-          LOG.debug("Have read input token of size " + saslToken.length
-              + " for processing by saslServer.unwrap()");
-        
-        if (!useWrap) {
-          processOneRpc(saslToken);
-        } else {
-          byte[] plaintextData = saslServer.unwrap(saslToken, 0,
-              saslToken.length);
-          processUnwrappedData(plaintextData);
-        }
-      }
-    }
+//    private void saslReadAndProcess(byte[] saslToken) throws IOException,
+//        InterruptedException {
+//      if (!saslContextEstablished) {
+//        byte[] replyToken = null;
+//        try {
+//          if (saslServer == null) {
+//            switch (authMethod) {
+//            case DIGEST:
+//              if (secretManager == null) {
+//                throw new AccessControlException(
+//                    "Server is not configured to do DIGEST authentication.");
+//              }
+//              secretManager.checkAvailableForRead();
+//              saslServer = Sasl.createSaslServer(AuthMethod.DIGEST
+//                  .getMechanismName(), null, SaslRpcServer.SASL_DEFAULT_REALM,
+//                  SaslRpcServer.SASL_PROPS, new SaslDigestCallbackHandler(
+//                      secretManager, this));
+//              break;
+//            default:
+//              UserGroupInformation current = UserGroupInformation
+//                  .getCurrentUser();
+//              String fullName = current.getUserName();
+//              if (LOG.isDebugEnabled())
+//                LOG.debug("Kerberos principal name is " + fullName);
+//              final String names[] = SaslRpcServer.splitKerberosName(fullName);
+//              if (names.length != 3) {
+//                throw new AccessControlException(
+//                    "Kerberos principal name does NOT have the expected "
+//                        + "hostname part: " + fullName);
+//              }
+//              current.doAs(new PrivilegedExceptionAction<Object>() {
+//                @Override
+//                public Object run() throws SaslException {
+//                  saslServer = Sasl.createSaslServer(AuthMethod.KERBEROS
+//                      .getMechanismName(), names[0], names[1],
+//                      SaslRpcServer.SASL_PROPS, new SaslGssCallbackHandler());
+//                  return null;
+//                }
+//              });
+//            }
+//            if (saslServer == null)
+//              throw new AccessControlException(
+//                  "Unable to find SASL server implementation for "
+//                      + authMethod.getMechanismName());
+//            if (LOG.isDebugEnabled())
+//              LOG.debug("Created SASL server with mechanism = "
+//                  + authMethod.getMechanismName());
+//          }
+//          if (LOG.isDebugEnabled())
+//            LOG.debug("Have read input token of size " + saslToken.length
+//                + " for processing by saslServer.evaluateResponse()");
+//          replyToken = saslServer.evaluateResponse(saslToken);
+//        } catch (IOException e) {
+//          IOException sendToClient = e;
+//          Throwable cause = e;
+//          while (cause != null) {
+//            if (cause instanceof InvalidToken) {
+//              sendToClient = (InvalidToken) cause;
+//              break;
+//            }
+//            cause = cause.getCause();
+//          }
+//          doSaslReply(SaslStatus.ERROR, null, sendToClient.getClass().getName(), 
+//              sendToClient.getLocalizedMessage());
+//          rpcMetrics.incrAuthenticationFailures();
+//          String clientIP = this.toString();
+//          // attempting user could be null
+//          AUDITLOG.warn(AUTH_FAILED_FOR + clientIP + ":" + attemptingUser);
+//          throw e;
+//        }
+//        if (replyToken != null) {
+//          if (LOG.isDebugEnabled())
+//            LOG.debug("Will send token of size " + replyToken.length
+//                + " from saslServer.");
+//          doSaslReply(SaslStatus.SUCCESS, new BytesWritable(replyToken), null,
+//              null);
+//        }
+//        if (saslServer.isComplete()) {
+//          if (LOG.isDebugEnabled()) {
+//            LOG.debug("SASL server context established. Negotiated QoP is "
+//                + saslServer.getNegotiatedProperty(Sasl.QOP));
+//          }
+//          String qop = (String) saslServer.getNegotiatedProperty(Sasl.QOP);
+//          useWrap = qop != null && !"auth".equalsIgnoreCase(qop);
+//          user = getAuthorizedUgi(saslServer.getAuthorizationID());
+//          if (LOG.isDebugEnabled()) {
+//            LOG.debug("SASL server successfully authenticated client: " + user);
+//          }
+//          rpcMetrics.incrAuthenticationSuccesses();
+//          AUDITLOG.info(AUTH_SUCCESSFUL_FOR + user);
+//          saslContextEstablished = true;
+//        }
+//      } else {
+//        if (LOG.isDebugEnabled())
+//          LOG.debug("Have read input token of size " + saslToken.length
+//              + " for processing by saslServer.unwrap()");
+//        
+//        if (!useWrap) {
+//          processOneRpc(saslToken);
+//        } else {
+//          byte[] plaintextData = saslServer.unwrap(saslToken, 0,
+//              saslToken.length);
+//          processUnwrappedData(plaintextData);
+//        }
+//      }
+//    }
     
-    private void doSaslReply(SaslStatus status, Writable rv,
-        String errorClass, String error) throws IOException {
-      saslResponse.reset();
-      DataOutputStream out = new DataOutputStream(saslResponse);
-      out.writeInt(status.state); // write status
-      if (status == SaslStatus.SUCCESS) {
-        rv.write(out);
-      } else {
-        WritableUtils.writeString(out, errorClass);
-        WritableUtils.writeString(out, error);
-      }
-      saslCall.setResponse(ByteBuffer.wrap(saslResponse.toByteArray()));
-      responder.doRespond(saslCall);
-    }
+//    private void doSaslReply(SaslStatus status, Writable rv,
+//        String errorClass, String error) throws IOException {
+//      saslResponse.reset();
+//      DataOutputStream out = new DataOutputStream(saslResponse);
+//      out.writeInt(status.state); // write status
+//      if (status == SaslStatus.SUCCESS) {
+//        rv.write(out);
+//      } else {
+//        WritableUtils.writeString(out, errorClass);
+//        WritableUtils.writeString(out, error);
+//      }
+//      saslCall.setResponse(ByteBuffer.wrap(saslResponse.toByteArray()));
+//      responder.doRespond(saslCall);
+//    }
     
-    private void disposeSasl() {
-      if (saslServer != null) {
-        try {
-          saslServer.dispose();
-        } catch (SaslException ignored) {
-        }
-      }
-    }
+//    private void disposeSasl() {
+//      if (saslServer != null) {
+//        try {
+//          saslServer.dispose();
+//        } catch (SaslException ignored) {
+//        }
+//      }
+//    }
     
     public int readAndProcess() throws IOException, InterruptedException {
       while (true) {
-        /* Read at most one RPC. If the header is not read completely yet
-         * then iterate until we read first RPC or until there is no data left.
-         */    
+//         Read at most one RPC. If the header is not read completely yet
+//         * then iterate until we read first RPC or until there is no data left.
+             
         int count = -1;
         if (dataLengthBuffer.remaining() > 0) {
           count = channelRead(channel, dataLengthBuffer);       
@@ -332,8 +329,8 @@ public class Connection {
           }
           int version = connectionHeaderBuf.get(0);
           byte[] method = new byte[] {connectionHeaderBuf.get(1)};
-          authMethod = AuthMethod.read(new DataInputStream(
-              new ByteArrayInputStream(method)));
+//          authMethod = AuthMethod.read(new DataInputStream(
+//              new ByteArrayInputStream(method)));
           dataLengthBuffer.flip();
           
           // Check if it looks like the user is hitting an IPC port
@@ -362,9 +359,9 @@ public class Connection {
           }
           
           dataLengthBuffer.clear();
-          if (authMethod == null) {
-            throw new IOException("Unable to read authentication method");
-          }
+//          if (authMethod == null) {
+//            throw new IOException("Unable to read authentication method");
+//          }
           if (isSecurityEnabled && authMethod == AuthMethod.SIMPLE) {
             AccessControlException ae = new AccessControlException("Authorization ("
               + CommonConfigurationKeys.HADOOP_SECURITY_AUTHORIZATION
@@ -377,18 +374,18 @@ public class Connection {
             responder.doRespond(authFailedCall);
             throw ae;
           }
-          if (!isSecurityEnabled && authMethod != AuthMethod.SIMPLE) {
-            doSaslReply(SaslStatus.SUCCESS, new IntWritable(
-                SaslRpcServer.SWITCH_TO_SIMPLE_AUTH), null, null);
-            authMethod = AuthMethod.SIMPLE;
-            // client has already sent the initial Sasl message and we
-            // should ignore it. Both client and server should fall back
-            // to simple auth from now on.
-            skipInitialSaslHandshake = true;
-          }
-          if (authMethod != AuthMethod.SIMPLE) {
-            useSasl = true;
-          }
+//          if (!isSecurityEnabled && authMethod != AuthMethod.SIMPLE) {
+//            doSaslReply(SaslStatus.SUCCESS, new IntWritable(
+//                SaslRpcServer.SWITCH_TO_SIMPLE_AUTH), null, null);
+//            authMethod = AuthMethod.SIMPLE;
+//            // client has already sent the initial Sasl message and we
+//            // should ignore it. Both client and server should fall back
+//            // to simple auth from now on.
+//            skipInitialSaslHandshake = true;
+//          }
+//          if (authMethod != AuthMethod.SIMPLE) {
+//            useSasl = true;
+//          }
           
           connectionHeaderBuf = null;
           connectionHeaderRead = true;
@@ -422,11 +419,11 @@ public class Connection {
             continue;
           }
           boolean isHeaderRead = connectionContextRead;
-          if (useSasl) {
-            saslReadAndProcess(data.array());
-          } else {
+//          if (useSasl) {
+            //saslReadAndProcess(data.array());
+//          } else {
             processOneRpc(data.array());
-          }
+//          }
           data = null;
           if (!isHeaderRead) {
             continue;
@@ -488,7 +485,7 @@ public class Connection {
       responder.doRespond(fakeCall);
     }
 
-    /** Reads the connection context following the connection header */
+    *//** Reads the connection context following the connection header *//*
     private void processConnectionContext(byte[] buf) throws IOException {
       DataInputStream in =
         new DataInputStream(new ByteArrayInputStream(buf));
@@ -496,37 +493,37 @@ public class Connection {
       protocolName = connectionContext.hasProtocol() ? connectionContext
           .getProtocol() : null;
 
-      UserGroupInformation protocolUser = ProtoUtil.getUgi(connectionContext);
-      if (!useSasl) {
-        user = protocolUser;
-        if (user != null) {
-          user.setAuthenticationMethod(AuthMethod.SIMPLE.authenticationMethod);
-        }
-      } else {
-        // user is authenticated
-        user.setAuthenticationMethod(authMethod.authenticationMethod);
-        //Now we check if this is a proxy user case. If the protocol user is
-        //different from the 'user', it is a proxy user scenario. However, 
-        //this is not allowed if user authenticated with DIGEST.
-        if ((protocolUser != null)
-            && (!protocolUser.getUserName().equals(user.getUserName()))) {
-          if (authMethod == AuthMethod.DIGEST) {
-            // Not allowed to doAs if token authentication is used
-            throw new AccessControlException("Authenticated user (" + user
-                + ") doesn't match what the client claims to be ("
-                + protocolUser + ")");
-          } else {
-            // Effective user can be different from authenticated user
-            // for simple auth or kerberos auth
-            // The user is the real user. Now we create a proxy user
-            UserGroupInformation realUser = user;
-            user = UserGroupInformation.createProxyUser(protocolUser
-                .getUserName(), realUser);
-            // Now the user is a proxy user, set Authentication method Proxy.
-            user.setAuthenticationMethod(AuthenticationMethod.PROXY);
-          }
-        }
-      }
+//      UserGroupInformation protocolUser = ProtoUtil.getUgi(connectionContext);
+//      if (!useSasl) {
+//        user = protocolUser;
+//        if (user != null) {
+//          user.setAuthenticationMethod(AuthMethod.SIMPLE.authenticationMethod);
+//        }
+//      } else {
+//        // user is authenticated
+//        user.setAuthenticationMethod(authMethod.authenticationMethod);
+//        //Now we check if this is a proxy user case. If the protocol user is
+//        //different from the 'user', it is a proxy user scenario. However, 
+//        //this is not allowed if user authenticated with DIGEST.
+//        if ((protocolUser != null)
+//            && (!protocolUser.getUserName().equals(user.getUserName()))) {
+//          if (authMethod == AuthMethod.DIGEST) {
+//            // Not allowed to doAs if token authentication is used
+//            throw new AccessControlException("Authenticated user (" + user
+//                + ") doesn't match what the client claims to be ("
+//                + protocolUser + ")");
+//          } else {
+//            // Effective user can be different from authenticated user
+//            // for simple auth or kerberos auth
+//            // The user is the real user. Now we create a proxy user
+//            UserGroupInformation realUser = user;
+//            user = UserGroupInformation.createProxyUser(protocolUser
+//                .getUserName(), realUser);
+//            // Now the user is a proxy user, set Authentication method Proxy.
+//            user.setAuthenticationMethod(AuthenticationMethod.PROXY);
+//          }
+//        }
+//      }
     }
     
     private void processUnwrappedData(byte[] inBuf) throws IOException,
@@ -575,11 +572,11 @@ public class Connection {
       } else {
         processConnectionContext(buf);
         connectionContextRead = true;
-        if (!authorizeConnection()) {
-          throw new AccessControlException("Connection from " + this
-              + " for protocol " + connectionContext.getProtocol()
-              + " is unauthorized for user " + user);      
-        }
+//        if (!authorizeConnection()) {
+//          throw new AccessControlException("Connection from " + this
+//              + " for protocol " + connectionContext.getProtocol()
+//              + " is unauthorized for user " + user);      
+//        }
       }
     }
     
@@ -643,33 +640,33 @@ public class Connection {
       incRpcCount();  // Increment the rpc count
     }
 
-    private boolean authorizeConnection() throws IOException {
-      try {
-        // If auth method is DIGEST, the token was obtained by the
-        // real user for the effective user, therefore not required to
-        // authorize real user. doAs is allowed only for simple or kerberos
-        // authentication
-        if (user != null && user.getRealUser() != null
-            && (authMethod != AuthMethod.DIGEST)) {
-          ProxyUsers.authorize(user, this.getHostAddress(), conf);
-        }
-        authorize(user, protocolName, getHostInetAddress());
-        if (LOG.isDebugEnabled()) {
-          LOG.debug("Successfully authorized " + connectionContext);
-        }
-        rpcMetrics.incrAuthorizationSuccesses();
-      } catch (AuthorizationException ae) {
-        rpcMetrics.incrAuthorizationFailures();
-        setupResponse(authFailedResponse, authFailedCall, RpcStatusProto.FATAL, null,
-            ae.getClass().getName(), ae.getMessage());
-        responder.doRespond(authFailedCall);
-        return false;
-      }
-      return true;
-    }
+//    private boolean authorizeConnection() throws IOException {
+//      try {
+//        // If auth method is DIGEST, the token was obtained by the
+//        // real user for the effective user, therefore not required to
+//        // authorize real user. doAs is allowed only for simple or kerberos
+//        // authentication
+//        if (user != null && user.getRealUser() != null
+//            && (authMethod != AuthMethod.DIGEST)) {
+//          ProxyUsers.authorize(user, this.getHostAddress(), conf);
+//        }
+//        authorize(user, protocolName, getHostInetAddress());
+//        if (LOG.isDebugEnabled()) {
+//          LOG.debug("Successfully authorized " + connectionContext);
+//        }
+//        rpcMetrics.incrAuthorizationSuccesses();
+//      } catch (AuthorizationException ae) {
+//        rpcMetrics.incrAuthorizationFailures();
+//        setupResponse(authFailedResponse, authFailedCall, RpcStatusProto.FATAL, null,
+//            ae.getClass().getName(), ae.getMessage());
+//        responder.doRespond(authFailedCall);
+//        return false;
+//      }
+//      return true;
+//    }
     
     private synchronized void close() throws IOException {
-      disposeSasl();
+      //disposeSasl();
       data = null;
       dataLengthBuffer = null;
       if (!channel.isOpen())
@@ -682,4 +679,4 @@ public class Connection {
       }
       try {socket.close();} catch(Exception e) {}
     }
-  }
+}
