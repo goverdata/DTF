@@ -327,7 +327,12 @@ public class Listener extends Thread {
 		}
 	}
 
-	void doRead(SelectionKey key) throws InterruptedException {
+    @Override
+    public synchronized void start() {
+        super.start();    //To change body of overridden methods use File | Settings | File Templates.
+    }
+
+    void doRead(SelectionKey key) throws InterruptedException {
 		int count = 0;
 		Connection c = (Connection) key.attachment();
 		if (c == null) {
