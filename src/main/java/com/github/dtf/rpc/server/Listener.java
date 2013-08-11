@@ -50,10 +50,10 @@ public class Listener extends Thread {
 	// CommonConfigurationKeysPublic.IPC_SERVER_LISTEN_QUEUE_SIZE_KEY,
 	// CommonConfigurationKeysPublic.IPC_SERVER_LISTEN_QUEUE_SIZE_DEFAULT);
 	private int backlogLength = 100;
-	Server server;
+	AbstractServer server;
 	boolean tcpNoDelay;
 
-	public Listener(Server server, InetAddress addr, int port, boolean tcpNoDelay) throws IOException {
+	public Listener(AbstractServer server, InetAddress addr, int port, boolean tcpNoDelay) throws IOException {
 		this.server = server;
 		this.tcpNoDelay = tcpNoDelay;
 		address = new InetSocketAddress(addr, port);

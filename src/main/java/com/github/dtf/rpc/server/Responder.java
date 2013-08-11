@@ -149,7 +149,7 @@ public class Responder extends Thread {
       Iterator<Call> iter = responseQueue.listIterator(0);
       while (iter.hasNext()) {
         call = iter.next();
-        if (now > call.timestamp + PURGE_INTERVAL) {
+        if (now > call.getTimestamp() + PURGE_INTERVAL) {
           closeConnection(call.connection);
           break;
         }
@@ -182,17 +182,17 @@ public class Responder extends Thread {
         call = responseQueue.removeFirst();
         SocketChannel channel = call.connection.channel;
         if (LOG.isDebugEnabled()) {
-          LOG.debug(getName() + ": responding to #" + call.callId + " from " +
+          LOG.debug(getName() + ": responding to #" + call.getCallId() + " from " +
                     call.connection);
         }
         //
         // Send as much data as we can in the non-blocking fashion
         //
-        int numBytes = channelWrite(channel, call.rpcResponse);
+        int numBytes = channelWrite(channel, call.getRpcResponse());
         if (numBytes < 0) {
           return true;
         }
-        if (!call.rpcResponse.hasRemaining()) {
+        if (!call.getRpcResponse().hasRemaining()) {
           call.connection.decRpcCount();
           if (numElements == 1) {    // last call fully processes.
             done = true;             // no more data for this channel.
@@ -200,7 +200,7 @@ public class Responder extends Thread {
             done = false;            // more calls pending to be sent.
           }
           if (LOG.isDebugEnabled()) {
-            LOG.debug(getName() + ": responding to #" + call.callId + " from " +
+            LOG.debug(getName() + ": responding to #" + call.getCallId() + " from " +
                       call.connection + " Wrote " + numBytes + " bytes.");
           }
         } else {
@@ -212,7 +212,7 @@ public class Responder extends Thread {
           
           if (inHandler) {
             // set the serve time when the response has to be sent later
-            call.timestamp = System.currentTimeMillis();
+            call.setTimestamp(System.currentTimeMillis());
             
             incPending();
             try {
@@ -228,7 +228,7 @@ public class Responder extends Thread {
             }
           }
           if (LOG.isDebugEnabled()) {
-            LOG.debug(getName() + ": responding to #" + call.callId + " from " +
+            LOG.debug(getName() + ": responding to #" + call.getCallId() + " from " +
                       call.connection + " Wrote partial " + numBytes + 
                       " bytes.");
           }
