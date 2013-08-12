@@ -21,6 +21,7 @@ import org.apache.commons.logging.LogFactory;
 
 import com.github.dtf.conf.CommonConfigurationKeys;
 import com.github.dtf.exception.IpcException;
+import com.github.dtf.rpc.RPC;
 import com.github.dtf.rpc.RPC.VersionMismatch;
 import com.github.dtf.rpc.RpcPayloadHeaderProtos.RpcPayloadHeaderProto;
 import com.github.dtf.rpc.RpcPayloadHeaderProtos.RpcPayloadOperationProto;
@@ -92,7 +93,7 @@ public class Connection {
 	public Connection(AbstractServer server, SelectionKey key,
 			SocketChannel channel, long lastContact) {
 		this.server = server;
-		this.channel = channel;
+		this.setChannel(channel);
 		this.lastContact = lastContact;
 		this.data = null;
 		this.dataLengthBuffer = ByteBuffer.allocate(4);
@@ -144,7 +145,7 @@ public class Connection {
 	}
 
 	/* Decrement the outstanding RPC count */
-	private void decRpcCount() {
+	public void decRpcCount() {
 		rpcCount--;
 	}
 
@@ -315,7 +316,7 @@ public class Connection {
 
 			int count = -1;
 			if (dataLengthBuffer.remaining() > 0) {
-				count = channelRead(channel, dataLengthBuffer);
+				count = server.channelRead(getChannel(), dataLengthBuffer);
 				if (count < 0 || dataLengthBuffer.remaining() > 0)
 					return count;
 			}
@@ -325,7 +326,7 @@ public class Connection {
 				if (connectionHeaderBuf == null) {
 					connectionHeaderBuf = ByteBuffer.allocate(3);
 				}
-				count = channelRead(channel, connectionHeaderBuf);
+				count = server.channelRead(getChannel(), connectionHeaderBuf);
 				if (count < 0 || connectionHeaderBuf.remaining() > 0) {
 					return count;
 				}
@@ -415,7 +416,7 @@ public class Connection {
 				data = ByteBuffer.allocate(dataLength);
 			}
 
-			count = channelRead(channel, data);
+			count = server.channelRead(getChannel(), data);
 
 			if (data.remaining() == 0) {
 				dataLengthBuffer.clear();
@@ -458,10 +459,10 @@ public class Connection {
 			Call fakeCall = new Call(-1, null, this);
 			// Versions 3 and greater can interpret this exception
 			// response in the same manner
-			setupResponseOldVersionFatal(buffer, fakeCall, null,
+			server.setupResponseOldVersionFatal(buffer, fakeCall, null,
 					VersionMismatch.class.getName(), errMsg);
 
-			responder.doRespond(fakeCall);
+			server.getResponder().doRespond(fakeCall);
 		} else if (clientVersion == 2) { // Hadoop 0.18.3
 			Call fakeCall = new Call(0, null, this);
 			DataOutputStream out = new DataOutputStream(buffer);
@@ -471,27 +472,27 @@ public class Connection {
 			WritableUtils.writeString(out, errMsg);
 			fakeCall.setResponse(ByteBuffer.wrap(buffer.toByteArray()));
 
-			responder.doRespond(fakeCall);
+			server.getResponder().doRespond(fakeCall);
 		}
 	}
 
 	private void respondUnsupportedSerialization(IpcSerializationType st)
 			throws IOException {
-		String errMsg = "Server IPC version " + CURRENT_VERSION
+		String errMsg = "Server IPC version " + AbstractServer.CURRENT_VERSION
 				+ " do not support serilization " + st.toString();
 		ByteArrayOutputStream buffer = new ByteArrayOutputStream();
 
 		Call fakeCall = new Call(-1, null, this);
-		setupResponse(buffer, fakeCall, RpcStatusProto.FATAL, null,
+		server.setupResponse(buffer, fakeCall, RpcStatusProto.FATAL, null,
 				IpcException.class.getName(), errMsg);
-		responder.doRespond(fakeCall);
+		server.getResponder().doRespond(fakeCall);
 	}
 
 	private void setupHttpRequestOnIpcPortResponse() throws IOException {
 		Call fakeCall = new Call(0, null, this);
 		fakeCall.setResponse(ByteBuffer
 				.wrap(AbstractServer.RECEIVED_HTTP_REQ_RESPONSE.getBytes()));
-		responder.doRespond(fakeCall);
+		server.getResponder().doRespond(fakeCall);
 	}
 
 	/** Reads the connection context following the connection header */
@@ -543,7 +544,7 @@ public class Connection {
 		while (true) {
 			int count = -1;
 			if (unwrappedDataLengthBuffer.remaining() > 0) {
-				count = channelRead(ch, unwrappedDataLengthBuffer);
+				count = server.channelRead(ch, unwrappedDataLengthBuffer);
 				if (count <= 0 || unwrappedDataLengthBuffer.remaining() > 0)
 					return;
 			}
@@ -561,7 +562,7 @@ public class Connection {
 				unwrappedData = ByteBuffer.allocate(unwrappedDataLength);
 			}
 
-			count = channelRead(ch, unwrappedData);
+			count = server.channelRead(ch, unwrappedData);
 			if (count <= 0 || unwrappedData.remaining() > 0)
 				return;
 
@@ -611,7 +612,7 @@ public class Connection {
 			throw new IOException(
 					" IPC Server: No rpc kind in rpcPayloadHeader");
 		}
-		Class<? extends Writable> rpcRequestClass = getRpcRequestWrapper(header
+		Class<? extends Writable> rpcRequestClass = server.getRpcRequestWrapper(header
 				.getRpcKind());
 		if (rpcRequestClass == null) {
 			LOG.warn("Unknown rpc kind " + header.getRpcKind()
@@ -620,10 +621,10 @@ public class Connection {
 					null, this);
 			ByteArrayOutputStream responseBuffer = new ByteArrayOutputStream();
 
-			setupResponse(responseBuffer, readParamsFailedCall,
+			server.setupResponse(responseBuffer, readParamsFailedCall,
 					RpcStatusProto.FATAL, null, IOException.class.getName(),
 					"Unknown rpc kind " + header.getRpcKind());
-			responder.doRespond(readParamsFailedCall);
+			server.getResponder().doRespond(readParamsFailedCall);
 			return;
 		}
 		Writable rpcRequest;
@@ -648,8 +649,10 @@ public class Connection {
 			return;
 		}
 
-		Call call = new Call(header.getCallId(), rpcRequest, this,
-				ProtoUtil.convert(header.getRpcKind()));
+//		Call call = new Call(header.getCallId(), rpcRequest, this,
+//				ProtoUtil.convert(header.getRpcKind()));
+		//FIXME Just for test
+		Call call = new Call(header.getCallId(), rpcRequest, this,RPC.Type.RPC_WRITABLE);
 		server.getCallQueue().put(call); // queue the call; maybe blocked here
 		incRpcCount(); // Increment the rpc count
 	}
@@ -684,16 +687,16 @@ public class Connection {
 		// disposeSasl();
 		data = null;
 		dataLengthBuffer = null;
-		if (!channel.isOpen())
+		if (!getChannel().isOpen())
 			return;
 		try {
 			socket.shutdownOutput();
 		} catch (Exception e) {
 			LOG.debug("Ignoring socket shutdown exception", e);
 		}
-		if (channel.isOpen()) {
+		if (getChannel().isOpen()) {
 			try {
-				channel.close();
+				getChannel().close();
 			} catch (Exception e) {
 			}
 		}
@@ -703,85 +706,11 @@ public class Connection {
 		}
 	}
 
-	/**
-	 * When the read or write buffer size is larger than this limit, i/o will be
-	 * done in chunks of this size. Most RPC requests and responses would be be
-	 * smaller.
-	 */
-	private static int NIO_BUFFER_LIMIT = 8 * 1024; // should not be more than
-													// 64KB.
-
-	/**
-	 * This is a wrapper around {@link WritableByteChannel#write(ByteBuffer)}.
-	 * If the amount of data is large, it writes to channel in smaller chunks.
-	 * This is to avoid jdk from creating many direct buffers as the size of
-	 * buffer increases. This also minimizes extra copies in NIO layer as a
-	 * result of multiple write operations required to write a large buffer.
-	 * 
-	 * @see WritableByteChannel#write(ByteBuffer)
-	 */
-	public int channelWrite(WritableByteChannel channel, ByteBuffer buffer)
-			throws IOException {
-
-		int count = (buffer.remaining() <= NIO_BUFFER_LIMIT) ? channel
-				.write(buffer) : channelIO(null, channel, buffer);
-		// if (count > 0) {
-		// rpcMetrics.incrSentBytes(count);
-		// }
-		return count;
+	public SocketChannel getChannel() {
+		return channel;
 	}
 
-	/**
-	 * This is a wrapper around {@link ReadableByteChannel#read(ByteBuffer)}. If
-	 * the amount of data is large, it writes to channel in smaller chunks. This
-	 * is to avoid jdk from creating many direct buffers as the size of
-	 * ByteBuffer increases. There should not be any performance degredation.
-	 * 
-	 * @see ReadableByteChannel#read(ByteBuffer)
-	 */
-	public int channelRead(ReadableByteChannel channel, ByteBuffer buffer)
-			throws IOException {
-
-		int count = (buffer.remaining() <= NIO_BUFFER_LIMIT) ? channel
-				.read(buffer) : channelIO(channel, null, buffer);
-		// if (count > 0) {
-		// rpcMetrics.incrReceivedBytes(count);
-		// }
-		return count;
-	}
-
-	/**
-	 * Helper for {@link #channelRead(ReadableByteChannel, ByteBuffer)} and
-	 * {@link #channelWrite(WritableByteChannel, ByteBuffer)}. Only one of
-	 * readCh or writeCh should be non-null.
-	 * 
-	 * @see #channelRead(ReadableByteChannel, ByteBuffer)
-	 * @see #channelWrite(WritableByteChannel, ByteBuffer)
-	 */
-	public static int channelIO(ReadableByteChannel readCh,
-			WritableByteChannel writeCh, ByteBuffer buf) throws IOException {
-
-		int originalLimit = buf.limit();
-		int initialRemaining = buf.remaining();
-		int ret = 0;
-
-		while (buf.remaining() > 0) {
-			try {
-				int ioSize = Math.min(buf.remaining(), NIO_BUFFER_LIMIT);
-				buf.limit(buf.position() + ioSize);
-
-				ret = (readCh == null) ? writeCh.write(buf) : readCh.read(buf);
-
-				if (ret < ioSize) {
-					break;
-				}
-
-			} finally {
-				buf.limit(originalLimit);
-			}
-		}
-
-		int nBytes = initialRemaining - buf.remaining();
-		return (nBytes > 0) ? nBytes : ret;
+	public void setChannel(SocketChannel channel) {
+		this.channel = channel;
 	}
 }

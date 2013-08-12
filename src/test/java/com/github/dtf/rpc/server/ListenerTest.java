@@ -12,11 +12,11 @@ import org.powermock.api.mockito.PowerMockito;
 
 public class ListenerTest {
 
-	Server server = null;
+	AbstractServer server = null;
 	
 	@Before
 	public void init(){
-		server = mock(Server.class);
+		server = mock(AbstractServer.class);
 	}
 	
 	@Test

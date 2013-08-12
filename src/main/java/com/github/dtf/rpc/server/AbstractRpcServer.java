@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.github.dtf.conf.Configuration;
 import com.github.dtf.rpc.RPC;
 import com.github.dtf.rpc.Writable;
 
@@ -154,7 +155,7 @@ public abstract class AbstractRpcServer extends AbstractServer {
    return new VerProtocolImpl(highestVersion,  highest);   
  }
 
-  protected Server(String bindAddress, int port, 
+  protected AbstractRpcServer(String bindAddress, int port, 
                    Class<? extends Writable> paramClass, int handlerCount,
                    int numReaders, int queueSizePerHandler,
                    Configuration conf, String serverName, 

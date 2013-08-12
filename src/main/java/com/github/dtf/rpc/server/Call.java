@@ -12,7 +12,7 @@ public class Call {
 	private final Connection connection; // connection to client
 
 	private long timestamp; // time received when response is null
-							// time served when response is not null
+							 // time served when response is not null
 	private ByteBuffer rpcResponse; // the response for this call
 	private final RPC.Type rpcKind;
 
@@ -27,11 +27,6 @@ public class Call {
 		this.setTimestamp(System.currentTimeMillis());
 		this.setRpcResponse(null);
 		this.rpcKind = kind;
-	}
-
-	@Override
-	public String toString() {
-		return rpcRequest.toString() + " from " + connection.toString();
 	}
 
 	public void setResponse(ByteBuffer response) {
@@ -63,5 +58,10 @@ public class Call {
 	}
 	public Connection getConnection() {
 		return connection;
+	}
+
+	@Override
+	public String toString() {
+		return rpcRequest.toString() + " from " + connection.toString();
 	}
 }

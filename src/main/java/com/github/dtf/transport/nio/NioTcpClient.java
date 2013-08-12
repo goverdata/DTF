@@ -25,20 +25,22 @@ import java.net.SocketException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 
-import org.apache.mina.api.IdleStatus;
-import org.apache.mina.api.IoFuture;
-import org.apache.mina.api.IoSession;
-import org.apache.mina.api.MinaRuntimeException;
-import org.apache.mina.service.executor.IoHandlerExecutor;
-import org.apache.mina.service.executor.OrderedHandlerExecutor;
-import org.apache.mina.service.idlechecker.IdleChecker;
-import org.apache.mina.service.idlechecker.IndexedIdleChecker;
-import org.apache.mina.transport.ConnectFuture;
-import org.apache.mina.transport.tcp.AbstractTcpClient;
-import org.apache.mina.transport.tcp.TcpSessionConfig;
-import org.apache.mina.util.Assert;
+//import org.apache.mina.api.IdleStatus;
+//import org.apache.mina.api.IoFuture;
+//import org.apache.mina.api.IoSession;
+//import org.apache.mina.api.MinaRuntimeException;
+//import org.apache.mina.service.executor.IoHandlerExecutor;
+//import org.apache.mina.service.executor.OrderedHandlerExecutor;
+//import org.apache.mina.service.idlechecker.IdleChecker;
+//import org.apache.mina.service.idlechecker.IndexedIdleChecker;
+//import org.apache.mina.transport.ConnectFuture;
+//import org.apache.mina.transport.tcp.AbstractTcpClient;
+//import org.apache.mina.transport.tcp.TcpSessionConfig;
+//import org.apache.mina.util.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.github.dtf.transport.tcp.AbstractTcpClient;
 
 /**
  * This class implements a TCP NIO based client.

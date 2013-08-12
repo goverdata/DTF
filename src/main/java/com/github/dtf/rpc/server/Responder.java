@@ -1,6 +1,7 @@
 package com.github.dtf.rpc.server;
 
 import java.io.IOException;
+import java.nio.channels.CancelledKeyException;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
@@ -12,7 +13,6 @@ import java.util.LinkedList;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import com.github.dtf.rpc.server.AbstractServer.Call;
 
 // Sends responses of RPC back to clients.
 public class Responder extends Thread {
@@ -23,8 +23,9 @@ public class Responder extends Thread {
   private int pending;         // connections waiting to register
   
   final static int PURGE_INTERVAL = 900000; // 15mins
-
-  Responder() throws IOException {
+  AbstractServer server;
+  public Responder(AbstractServer server) throws IOException {
+	  this.server = server;
     this.setName("IPC Server Responder");
     this.setDaemon(true);
     writeSelector = Selector.open(); // create a selector
@@ -50,7 +51,7 @@ public class Responder extends Thread {
   private void doRunLoop() {
     long lastPurgeTime = 0;   // last check for old calls.
 
-    while (running) {
+    while (server.isRunning()) {
       try {
         waitPending();     // If a channel is being registered, wait.
         writeSelector.select(PURGE_INTERVAL);
@@ -87,7 +88,7 @@ public class Responder extends Thread {
           while (iter.hasNext()) {
             SelectionKey key = iter.next();
             Call call = (Call)key.attachment();
-            if (call != null && key.channel() == call.connection.channel) { 
+            if (call != null && key.channel() == call.getConnection().getChannel()) { 
               calls.add(call);
             }
           }
@@ -119,12 +120,12 @@ public class Responder extends Thread {
     if (call == null) {
       return;
     }
-    if (key.channel() != call.connection.channel) {
+    if (key.channel() != call.getConnection().getChannel()) {
       throw new IOException("doAsyncWrite: bad channel");
     }
 
-    synchronized(call.connection.responseQueue) {
-      if (processResponse(call.connection.responseQueue, false)) {
+    synchronized(call.getConnection().responseQueue) {
+      if (processResponse(call.getConnection().responseQueue, false)) {
         try {
           key.interestOps(0);
         } catch (CancelledKeyException e) {
@@ -144,13 +145,13 @@ public class Responder extends Thread {
   // for a long time.
   //
   private void doPurge(Call call, long now) throws IOException {
-    LinkedList<Call> responseQueue = call.connection.responseQueue;
+    LinkedList<Call> responseQueue = call.getConnection().responseQueue;
     synchronized (responseQueue) {
       Iterator<Call> iter = responseQueue.listIterator(0);
       while (iter.hasNext()) {
         call = iter.next();
         if (now > call.getTimestamp() + PURGE_INTERVAL) {
-          closeConnection(call.connection);
+          server.closeConnection(call.getConnection());
           break;
         }
       }
@@ -180,20 +181,20 @@ public class Responder extends Thread {
         // Extract the first call
         //
         call = responseQueue.removeFirst();
-        SocketChannel channel = call.connection.channel;
+        SocketChannel channel = call.getConnection().getChannel();
         if (LOG.isDebugEnabled()) {
           LOG.debug(getName() + ": responding to #" + call.getCallId() + " from " +
-                    call.connection);
+                    call.getConnection());
         }
         //
         // Send as much data as we can in the non-blocking fashion
         //
-        int numBytes = channelWrite(channel, call.getRpcResponse());
+        int numBytes = server.channelWrite(channel, call.getRpcResponse());
         if (numBytes < 0) {
           return true;
         }
         if (!call.getRpcResponse().hasRemaining()) {
-          call.connection.decRpcCount();
+          call.getConnection().decRpcCount();
           if (numElements == 1) {    // last call fully processes.
             done = true;             // no more data for this channel.
           } else {
@@ -201,14 +202,14 @@ public class Responder extends Thread {
           }
           if (LOG.isDebugEnabled()) {
             LOG.debug(getName() + ": responding to #" + call.getCallId() + " from " +
-                      call.connection + " Wrote " + numBytes + " bytes.");
+                      call.getConnection() + " Wrote " + numBytes + " bytes.");
           }
         } else {
           //
           // If we were unable to write the entire response out, then 
           // insert in Selector queue. 
           //
-          call.connection.responseQueue.addFirst(call);
+          call.getConnection().responseQueue.addFirst(call);
           
           if (inHandler) {
             // set the serve time when the response has to be sent later
@@ -229,7 +230,7 @@ public class Responder extends Thread {
           }
           if (LOG.isDebugEnabled()) {
             LOG.debug(getName() + ": responding to #" + call.getCallId() + " from " +
-                      call.connection + " Wrote partial " + numBytes + 
+                      call.getConnection() + " Wrote partial " + numBytes + 
                       " bytes.");
           }
         }
@@ -239,7 +240,7 @@ public class Responder extends Thread {
       if (error && call != null) {
         LOG.warn(getName()+", call " + call + ": output error");
         done = true;               // error. no more data for this channel.
-        closeConnection(call.connection);
+        server.closeConnection(call.getConnection());
       }
     }
     return done;
@@ -249,10 +250,10 @@ public class Responder extends Thread {
   // Enqueue a response from the application.
   //
   void doRespond(Call call) throws IOException {
-    synchronized (call.connection.responseQueue) {
-      call.connection.responseQueue.addLast(call);
-      if (call.connection.responseQueue.size() == 1) {
-        processResponse(call.connection.responseQueue, true);
+    synchronized (call.getConnection().responseQueue) {
+      call.getConnection().responseQueue.addLast(call);
+      if (call.getConnection().responseQueue.size() == 1) {
+        processResponse(call.getConnection().responseQueue, true);
       }
     }
   }

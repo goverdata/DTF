@@ -13,22 +13,25 @@ import com.github.dtf.utils.StringUtils;
 public class Handler extends Thread {
 	public static final Log LOG = LogFactory.getLog(Handler.class);
 	AbstractServer server;
+
 	public Handler(AbstractServer server, int instanceNumber) {
 		this.server = server;
 		this.setDaemon(true);
-		this.setName("IPC Server handler " + instanceNumber + " on " + server.getPort());
+		this.setName("IPC Server handler " + instanceNumber + " on "
+				+ server.getPort());
 	}
 
 	@Override
 	public void run() {
 		LOG.debug(getName() + ": starting");
-		//SERVER.set(AbstractServer.this);
+		// SERVER.set(AbstractServer.this);
 		ByteArrayOutputStream buf = new ByteArrayOutputStream(
 				AbstractServer.INITIAL_RESP_BUF_SIZE);
 		while (server.isRunning()) {
 			try {
-				final Call call = server.getCallQueue().take(); // pop the queue; maybe
-													// blocked here
+				final Call call = server.getCallQueue().take(); // pop the
+																// queue; maybe
+				// blocked here
 				if (LOG.isDebugEnabled()) {
 					LOG.debug(getName() + ": has Call#" + call.getCallId()
 							+ "for RpcKind " + call.getRpcKind() + " from "
@@ -44,8 +47,9 @@ public class Handler extends Thread {
 					// associating
 					// the call with the Subject
 					// if (call.connection.user == null) {
-					value = server.call(call.getRpcKind(), call.getConnection().protocolName,
-							call.rpcRequest, call.getTimestamp());
+					value = server.call(call.getRpcKind(),
+							call.getConnection().protocolName, call.rpcRequest,
+							call.getTimestamp());
 					// } else {
 					// value =
 					// call.connection.user.doAs
@@ -99,7 +103,8 @@ public class Handler extends Thread {
 					if (buf.size() > server.getMaxRespSize()) {
 						LOG.warn("Large response size " + buf.size()
 								+ " for call " + call.toString());
-						buf = new ByteArrayOutputStream(AbstractServer.INITIAL_RESP_BUF_SIZE);
+						buf = new ByteArrayOutputStream(
+								AbstractServer.INITIAL_RESP_BUF_SIZE);
 					}
 					server.getResponder().doRespond(call);
 				}

@@ -4,6 +4,8 @@ import java.util.List;
 
 
 public interface Server {
+	
+	
 	public boolean isRunning();
 
 	public List<Connection> getConnectionList();
