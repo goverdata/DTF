@@ -42,8 +42,7 @@ public class Connection {
 	 * If the user accidentally sends an HTTP GET to an IPC port, we detect this
 	 * and send back a nicer response.
 	 */
-	private static final ByteBuffer HTTP_GET_BYTES = ByteBuffer.wrap("GET "
-			.getBytes());
+	private static final ByteBuffer HTTP_GET_BYTES = ByteBuffer.wrap("GET ".getBytes());
 
 	private SocketChannel channel;
 	private ByteBuffer data;

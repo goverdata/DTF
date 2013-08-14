@@ -42,10 +42,12 @@ import org.apache.commons.logging.LogFactory;
 //import org.apache.hadoop.security.token.TokenIdentifier;
 //import org.apache.hadoop.util.Time;
 
+import com.github.dtf.conf.Configurable;
 import com.github.dtf.conf.Configuration;
+import com.github.dtf.io.ObjectWritable;
 import com.github.dtf.protocol.ProtocolProxy;
-import com.github.dtf.rpc.RPC.RpcInvoker;
 import com.github.dtf.rpc.client.Client;
+import com.github.dtf.rpc.client.ClientCache;
 import com.github.dtf.rpc.client.ConnectionId;
 import com.github.dtf.rpc.server.AbstractRpcServer;
 import com.github.dtf.security.UserGroupInformation;
@@ -214,11 +216,11 @@ public class WritableRpcEngine implements RpcEngine {
 	    private boolean isClosed = false;
 
 	    public Invoker(Class<?> protocol,
-	                   InetSocketAddress address, UserGroupInformation ticket,
+	                   InetSocketAddress address,
 	                   Configuration conf, SocketFactory factory,
 	                   int rpcTimeout) throws IOException {
 	      this.remoteId = ConnectionId.getConnectionId(address, protocol,
-	          ticket, rpcTimeout, conf);
+	          rpcTimeout, conf);
 	      this.client = CLIENTS.getClient(conf, factory);
 	    }
 
@@ -226,13 +228,14 @@ public class WritableRpcEngine implements RpcEngine {
 	      throws Throwable {
 	      long startTime = 0;
 	      if (LOG.isDebugEnabled()) {
-	        startTime = Time.now();
+	        startTime = System.currentTimeMillis();
 	      }
 
-	      ObjectWritable value = (ObjectWritable)
-	        client.call(RPC.RpcKind.RPC_WRITABLE, new Invocation(method, args), remoteId);
+	      //ObjectWritable value = (ObjectWritable)
+	      ObjectWritable value = null;
+	      client.call(RPC.Type.RPC_WRITABLE, new Invocation(method, args), remoteId);
 	      if (LOG.isDebugEnabled()) {
-	        long callTime = Time.now() - startTime;
+	        long callTime = System.currentTimeMillis() - startTime;
 	        LOG.debug("Call: " + method.getName() + " " + callTime);
 	      }
 	      return value.get();
@@ -263,7 +266,7 @@ public class WritableRpcEngine implements RpcEngine {
 	   * @param <T>*/
 	  @SuppressWarnings("unchecked")
 	  public <T> ProtocolProxy<T> getProxy(Class<T> protocol, long clientVersion,
-	                         InetSocketAddress addr, UserGroupInformation ticket,
+	                         InetSocketAddress addr,
 	                         Configuration conf, SocketFactory factory,
 	                         int rpcTimeout, RetryPolicy connectionRetryPolicy)
 	    throws IOException {    
@@ -274,7 +277,7 @@ public class WritableRpcEngine implements RpcEngine {
 	    }
 
 	    T proxy = (T) Proxy.newProxyInstance(protocol.getClassLoader(),
-	        new Class[] { protocol }, new Invoker(protocol, addr, ticket, conf,
+	        new Class[] { protocol }, new Invoker(protocol, addr, conf,
 	            factory, rpcTimeout));
 	    return new ProtocolProxy<T>(protocol, proxy, true);
 	  }
@@ -428,7 +431,7 @@ public class WritableRpcEngine implements RpcEngine {
 
 	          // Invoke the protocol method
 
-	          long startTime = Time.now();
+	          long startTime = System.currentTimeMillis();
 	          Method method = 
 	              protocolImpl.protocolClass.getMethod(call.getMethodName(),
 	              call.getParameterClasses());
@@ -436,7 +439,7 @@ public class WritableRpcEngine implements RpcEngine {
 	          server.rpcDetailedMetrics.init(protocolImpl.protocolClass);
 	          Object value = 
 	              method.invoke(protocolImpl.protocolImpl, call.getParameters());
-	          int processingTime = (int) (Time.now() - startTime);
+	          int processingTime = (int) (System.currentTimeMillis() - startTime);
 	          int qTime = (int) (startTime-receivedTime);
 	          if (LOG.isDebugEnabled()) {
 	            LOG.debug("Served: " + call.getMethodName() +

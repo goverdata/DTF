@@ -57,6 +57,7 @@ public class Client {
 
   private Class<? extends Writable> valueClass;
   
+  public final static int PING_CALL_ID = -1;
   /**
    * set the ping interval value in configuration
    * 

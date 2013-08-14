@@ -115,8 +115,8 @@ public class ConnectionId {
    * @return A ConnectionId instance
    * @throws IOException
    */
-  static ConnectionId getConnectionId(InetSocketAddress addr,
-      Class<?> protocol, UserGroupInformation ticket, int rpcTimeout,
+  public static ConnectionId getConnectionId(InetSocketAddress addr,
+      Class<?> protocol, int rpcTimeout,
        Configuration conf) throws IOException {
 
 //    if (connectionRetryPolicy == null) {

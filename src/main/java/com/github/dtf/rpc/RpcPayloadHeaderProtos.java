@@ -1,5 +1,14 @@
 package com.github.dtf.rpc;
 
+import com.google.protobuf.ByteString;
+import com.google.protobuf.Descriptors.Descriptor;
+import com.google.protobuf.Descriptors.EnumValueDescriptor;
+import com.google.protobuf.ExtensionRegistryLite;
+import com.google.protobuf.GeneratedMessage;
+import com.google.protobuf.Internal.EnumLiteMap;
+import com.google.protobuf.InvalidProtocolBufferException;
+
+
 
 
 public final class RpcPayloadHeaderProtos {
@@ -30,13 +39,13 @@ public final class RpcPayloadHeaderProtos {
 	      }
 	    }
 	    
-	    public static com.google.protobuf.Internal.EnumLiteMap<RpcKindProto>
+	    public static EnumLiteMap<RpcKindProto>
 	        internalGetValueMap() {
 	      return internalValueMap;
 	    }
-	    private static com.google.protobuf.Internal.EnumLiteMap<RpcKindProto>
+	    private static EnumLiteMap<RpcKindProto>
 	        internalValueMap =
-	          new com.google.protobuf.Internal.EnumLiteMap<RpcKindProto>() {
+	          new EnumLiteMap<RpcKindProto>() {
 	            public RpcKindProto findValueByNumber(int number) {
 	              return RpcKindProto.valueOf(number);
 	            }
@@ -102,13 +111,13 @@ public final class RpcPayloadHeaderProtos {
 	      }
 	    }
 	    
-	    public static com.google.protobuf.Internal.EnumLiteMap<RpcPayloadOperationProto>
+	    public static EnumLiteMap<RpcPayloadOperationProto>
 	        internalGetValueMap() {
 	      return internalValueMap;
 	    }
-	    private static com.google.protobuf.Internal.EnumLiteMap<RpcPayloadOperationProto>
+	    private static EnumLiteMap<RpcPayloadOperationProto>
 	        internalValueMap =
-	          new com.google.protobuf.Internal.EnumLiteMap<RpcPayloadOperationProto>() {
+	          new EnumLiteMap<RpcPayloadOperationProto>() {
 	            public RpcPayloadOperationProto findValueByNumber(int number) {
 	              return RpcPayloadOperationProto.valueOf(number);
 	            }
@@ -174,13 +183,13 @@ public final class RpcPayloadHeaderProtos {
 	      }
 	    }
 	    
-	    public static com.google.protobuf.Internal.EnumLiteMap<RpcStatusProto>
+	    public static EnumLiteMap<RpcStatusProto>
 	        internalGetValueMap() {
 	      return internalValueMap;
 	    }
-	    private static com.google.protobuf.Internal.EnumLiteMap<RpcStatusProto>
+	    private static EnumLiteMap<RpcStatusProto>
 	        internalValueMap =
-	          new com.google.protobuf.Internal.EnumLiteMap<RpcStatusProto>() {
+	          new EnumLiteMap<RpcStatusProto>() {
 	            public RpcStatusProto findValueByNumber(int number) {
 	              return RpcStatusProto.valueOf(number);
 	            }
@@ -204,7 +213,7 @@ public final class RpcPayloadHeaderProtos {
 	    };
 	    
 	    public static RpcStatusProto valueOf(
-	        com.google.protobuf.Descriptors.EnumValueDescriptor desc) {
+	        EnumValueDescriptor desc) {
 	      if (desc.getType() != getDescriptor()) {
 	        throw new java.lang.IllegalArgumentException(
 	          "EnumValueDescriptor is not for this type.");
@@ -239,7 +248,7 @@ public final class RpcPayloadHeaderProtos {
 	    int getCallId();
 	  }
 	  public static final class RpcPayloadHeaderProto extends
-	      com.google.protobuf.GeneratedMessage
+	      GeneratedMessage
 	      implements RpcPayloadHeaderProtoOrBuilder {
 	    // Use RpcPayloadHeaderProto.newBuilder() to construct.
 	    private RpcPayloadHeaderProto(Builder builder) {
@@ -256,12 +265,12 @@ public final class RpcPayloadHeaderProtos {
 	      return defaultInstance;
 	    }
 	    
-	    public static final com.google.protobuf.Descriptors.Descriptor
+	    public static final Descriptor
 	        getDescriptor() {
 	      return internal_static_RpcPayloadHeaderProto_descriptor;
 	    }
 	    
-	    protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
+	    protected FieldAccessorTable
 	        internalGetFieldAccessorTable() {
 	      return internal_static_RpcPayloadHeaderProto_fieldAccessorTable;
 	    }
@@ -412,13 +421,13 @@ public final class RpcPayloadHeaderProtos {
 	    }
 	    
 	    public static RpcPayloadHeaderProto parseFrom(
-	        com.google.protobuf.ByteString data)
-	        throws com.google.protobuf.InvalidProtocolBufferException {
+	        ByteString data)
+	        throws InvalidProtocolBufferException {
 	      return newBuilder().mergeFrom(data).buildParsed();
 	    }
 	    public static RpcPayloadHeaderProto parseFrom(
-	        com.google.protobuf.ByteString data,
-	        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+	        ByteString data,
+	        ExtensionRegistryLite extensionRegistry)
 	        throws com.google.protobuf.InvalidProtocolBufferException {
 	      return newBuilder().mergeFrom(data, extensionRegistry)
 	               .buildParsed();
@@ -429,8 +438,8 @@ public final class RpcPayloadHeaderProtos {
 	    }
 	    public static RpcPayloadHeaderProto parseFrom(
 	        byte[] data,
-	        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-	        throws com.google.protobuf.InvalidProtocolBufferException {
+	       ExtensionRegistryLite extensionRegistry)
+	        throws InvalidProtocolBufferException {
 	      return newBuilder().mergeFrom(data, extensionRegistry)
 	               .buildParsed();
 	    }

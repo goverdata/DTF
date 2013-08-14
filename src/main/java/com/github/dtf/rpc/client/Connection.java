@@ -146,7 +146,7 @@ public class Connection extends Thread {
 
   /** Update lastActivity with the current time. */
   private void touch() {
-    lastActivity.set(Time.now());
+    lastActivity.set(System.currentTimeMillis());
   }
 
   /**
@@ -596,7 +596,7 @@ public class Connection extends Thread {
    */
   private synchronized boolean waitForWork() {
     if (calls.isEmpty() && !shouldCloseConnection.get()  && running.get())  {
-      long timeout = maxIdleTime - (Time.now()-lastActivity.get());
+      long timeout = maxIdleTime - (System.currentTimeMillis()-lastActivity.get());
       if (timeout>0) {
         try {
           wait(timeout);
@@ -627,7 +627,7 @@ public class Connection extends Thread {
    * since last I/O activity is equal to or greater than the ping interval
    */
   private synchronized void sendPing() throws IOException {
-    long curTime = Time.now();
+    long curTime = System.currentTimeMillis();
     if ( curTime - lastActivity.get() >= pingInterval) {
       lastActivity.set(curTime);
       synchronized (out) {
@@ -686,9 +686,9 @@ public class Connection extends Thread {
         buffer = new DataOutputBuffer();
         
         //Add the header
-//        RpcPayloadHeaderProto header = ProtoUtil.makeRpcPayloadHeader(
-//           call.rpcKind, RpcPayloadOperationProto.RPC_FINAL_PAYLOAD, call.id);
-//        header.writeDelimitedTo(buffer);
+        RpcPayloadHeaderProto header = ProtoUtil.makeRpcPayloadHeader(
+           call.rpcKind, RpcPayloadOperationProto.RPC_FINAL_PAYLOAD, call.id);
+        header.writeDelimitedTo(buffer);
         call.rpcRequest.write(buffer);
         byte[] data = buffer.getData();
  
