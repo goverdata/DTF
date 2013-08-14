@@ -474,4 +474,12 @@ public class WritableRpcEngine implements RpcEngine {
 	      }
 	    }
 	  }
+
+	public <T> ProtocolProxy<T> getProxy(Class<T> protocol, long clientVersion,
+			InetSocketAddress addr, UserGroupInformation ticket,
+			Configuration conf, SocketFactory factory, int rpcTimeout,
+			RetryPolicy connectionRetryPolicy) throws IOException {
+		// TODO Auto-generated method stub
+		return null;
+	}
 	}
