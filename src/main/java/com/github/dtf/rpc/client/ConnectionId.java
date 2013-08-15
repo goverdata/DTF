@@ -2,9 +2,9 @@ package com.github.dtf.rpc.client;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.util.concurrent.TimeUnit;
 
 import com.github.dtf.conf.CommonConfigurationKeys;
+import com.github.dtf.conf.CommonConfigurationKeysPublic;
 import com.github.dtf.conf.Configuration;
 import com.github.dtf.security.UserGroupInformation;
 import com.github.dtf.transport.RetryPolicy;
@@ -20,7 +20,7 @@ public class ConnectionId {
   private final String serverPrincipal;
   private final int maxIdleTime; //connections will be culled if it was idle for 
   //maxIdleTime msecs
-  private final RetryPolicy connectionRetryPolicy;
+  private static RetryPolicy connectionRetryPolicy;
   // the max. no. of retries for socket connections on time out exceptions
   private final int maxRetriesOnSocketTimeouts;
   private final boolean tcpNoDelay; // if T then disable Nagle's Algorithm
@@ -39,6 +39,24 @@ public class ConnectionId {
 	  doPing = false;
 	  pingInterval = 100;
   }
+  
+  public ConnectionId(InetSocketAddress address, Class<?> protocol, 
+		   int rpcTimeout,
+		  String serverPrincipal, int maxIdleTime, 
+		  RetryPolicy connectionRetryPolicy, int maxRetriesOnSocketTimeouts,
+		  boolean tcpNoDelay, boolean doPing, int pingInterval) {
+	  this.protocol = protocol;
+	  this.address = address;
+	  this.rpcTimeout = rpcTimeout;
+	  this.serverPrincipal = serverPrincipal;
+	  this.maxIdleTime = maxIdleTime;
+	  this.connectionRetryPolicy = connectionRetryPolicy;
+	  this.maxRetriesOnSocketTimeouts = maxRetriesOnSocketTimeouts;
+	  this.tcpNoDelay = tcpNoDelay;
+	  this.doPing = doPing;
+	  this.pingInterval = pingInterval;
+  }
+  
   
   public ConnectionId(InetSocketAddress address, Class<?> protocol, 
                UserGroupInformation ticket, int rpcTimeout,
@@ -127,11 +145,10 @@ public class ConnectionId {
 //          max, 1, TimeUnit.SECONDS);
 //    }
 
-    String remotePrincipal = getRemotePrincipal(conf, addr, protocol);
+//    String remotePrincipal = getRemotePrincipal(conf, addr, protocol);
     boolean doPing =
-      conf.getBoolean(CommonConfigurationKeys.IPC_CLIENT_PING_KEY, true);
-    return new ConnectionId(addr, protocol, ticket,
-        rpcTimeout, remotePrincipal,
+      conf.getBoolean(CommonConfigurationKeys.IPC_CLIENT_PING_KEY, false);
+    return new ConnectionId(addr, protocol, rpcTimeout, null,
         conf.getInt(CommonConfigurationKeysPublic.IPC_CLIENT_CONNECTION_MAXIDLETIME_KEY,
             CommonConfigurationKeysPublic.IPC_CLIENT_CONNECTION_MAXIDLETIME_DEFAULT),
         connectionRetryPolicy,
@@ -144,7 +161,7 @@ public class ConnectionId {
         (doPing ? Client.getPingInterval(conf) : 0));
   }
   
-  private static String getRemotePrincipal(Configuration conf,
+  /*private static String getRemotePrincipal(Configuration conf,
       InetSocketAddress address, Class<?> protocol) throws IOException {
     if (!UserGroupInformation.isSecurityEnabled() || protocol == null) {
       return null;
@@ -161,7 +178,7 @@ public class ConnectionId {
           .getAddress());
     }
     return null;
-  }
+  }*/
   
   static boolean isEqual(Object a, Object b) {
     return a == null ? b == null : a.equals(b);

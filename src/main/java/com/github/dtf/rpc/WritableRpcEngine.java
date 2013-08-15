@@ -112,15 +112,17 @@ public class WritableRpcEngine implements RpcEngine {
 	      this.parameterClasses = method.getParameterTypes();
 	      this.parameters = parameters;
 	      rpcVersion = writableRpcVersion;
-	      if (method.getDeclaringClass().equals(VersionedProtocol.class)) {
-	        //VersionedProtocol is exempted from version check.
-	        clientVersion = 0;
-	        clientMethodsHash = 0;
-	      } else {
-	        this.clientVersion = RPC.getProtocolVersion(method.getDeclaringClass());
-	        this.clientMethodsHash = ProtocolSignature.getFingerprint(method
-	            .getDeclaringClass().getMethods());
-	      }
+//	      if (method.getDeclaringClass().equals(VersionedProtocol.class)) {
+//	        //VersionedProtocol is exempted from version check.
+//	        clientVersion = 0;
+//	        clientMethodsHash = 0;
+//	      } else {
+//	        this.clientVersion = RPC.getProtocolVersion(method.getDeclaringClass());
+//	        this.clientMethodsHash = ProtocolSignature.getFingerprint(method
+//	            .getDeclaringClass().getMethods());
+//	      }
+	      clientVersion = 0;
+	      clientMethodsHash = 0;
 	      this.declaringClassProtocolName = 
 	          RPC.getProtocolName(method.getDeclaringClass());
 	    }

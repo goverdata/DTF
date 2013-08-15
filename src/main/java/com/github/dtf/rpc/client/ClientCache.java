@@ -6,6 +6,7 @@ import java.util.Map;
 import javax.net.SocketFactory;
 
 import com.github.dtf.conf.Configuration;
+import com.github.dtf.io.ObjectWritable;
 import com.github.dtf.rpc.Writable;
 
 

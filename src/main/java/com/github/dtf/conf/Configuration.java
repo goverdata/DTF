@@ -13,4 +13,9 @@ public class Configuration {
 		return null;
 	}
 
+	public boolean getBoolean(String ipcClientPingKey, boolean b) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
 }
