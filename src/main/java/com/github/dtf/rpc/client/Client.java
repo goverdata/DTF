@@ -213,7 +213,7 @@ public class Client {
                        int rpcTimeout, Configuration conf)  
                        throws InterruptedException, IOException {
     ConnectionId remoteId = ConnectionId.getConnectionId(addr, protocol,
-        ticket, rpcTimeout, conf);
+        rpcTimeout, conf);
     return call(rpcKind, param, remoteId);
   }
   

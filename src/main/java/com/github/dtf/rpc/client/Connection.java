@@ -14,6 +14,7 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
+import java.rmi.RemoteException;
 import java.security.PrivilegedExceptionAction;
 import java.util.Hashtable;
 import java.util.Iterator;
@@ -27,11 +28,19 @@ import org.apache.commons.logging.LogFactory;
 
 import com.github.dtf.conf.Configuration;
 import com.github.dtf.io.DataOutputBuffer;
+import com.github.dtf.rpc.RpcPayloadHeaderProtos.RpcPayloadHeaderProto;
+import com.github.dtf.rpc.RpcPayloadHeaderProtos.RpcPayloadOperationProto;
+import com.github.dtf.rpc.RpcPayloadHeaderProtos.RpcResponseHeaderProto;
+import com.github.dtf.rpc.RpcPayloadHeaderProtos.RpcStatusProto;
 import com.github.dtf.rpc.Writable;
+import com.github.dtf.rpc.server.Server;
 import com.github.dtf.security.UserGroupInformation;
 import com.github.dtf.transport.RetryPolicy;
 import com.github.dtf.utils.IOUtils;
 import com.github.dtf.utils.NetUtils;
+import com.github.dtf.utils.ProtoUtil;
+import com.github.dtf.utils.ReflectionUtils;
+import com.github.dtf.utils.WritableUtils;
 
 
 /** Thread that reads responses and notifies callers.  Each connection owns a
@@ -221,37 +230,37 @@ public class Connection extends Thread {
     }
   }
   
-  private synchronized void disposeSasl() {
-    if (saslRpcClient != null) {
-      try {
-        saslRpcClient.dispose();
-        saslRpcClient = null;
-      } catch (IOException ignored) {
-      }
-    }
-  }
+//  private synchronized void disposeSasl() {
+//    if (saslRpcClient != null) {
+//      try {
+//        saslRpcClient.dispose();
+//        saslRpcClient = null;
+//      } catch (IOException ignored) {
+//      }
+//    }
+//  }
   
-  private synchronized boolean shouldAuthenticateOverKrb() throws IOException {
-    UserGroupInformation loginUser = UserGroupInformation.getLoginUser();
-    UserGroupInformation currentUser = UserGroupInformation.getCurrentUser();
-    UserGroupInformation realUser = currentUser.getRealUser();
-    if (authMethod == AuthMethod.KERBEROS && loginUser != null &&
-    // Make sure user logged in using Kerberos either keytab or TGT
-        loginUser.hasKerberosCredentials() &&
-        // relogin only in case it is the login user (e.g. JT)
-        // or superuser (like oozie).
-        (loginUser.equals(currentUser) || loginUser.equals(realUser))) {
-      return true;
-    }
-    return false;
-  }
+//  private synchronized boolean shouldAuthenticateOverKrb() throws IOException {
+//    UserGroupInformation loginUser = UserGroupInformation.getLoginUser();
+//    UserGroupInformation currentUser = UserGroupInformation.getCurrentUser();
+//    UserGroupInformation realUser = currentUser.getRealUser();
+//    if (authMethod == AuthMethod.KERBEROS && loginUser != null &&
+//    // Make sure user logged in using Kerberos either keytab or TGT
+//        loginUser.hasKerberosCredentials() &&
+//        // relogin only in case it is the login user (e.g. JT)
+//        // or superuser (like oozie).
+//        (loginUser.equals(currentUser) || loginUser.equals(realUser))) {
+//      return true;
+//    }
+//    return false;
+//  }
   
-  private synchronized boolean setupSaslConnection(final InputStream in2, 
-      final OutputStream out2) 
-      throws IOException {
-    saslRpcClient = new SaslRpcClient(authMethod, token, serverPrincipal);
-    return saslRpcClient.saslConnect(in2, out2);
-  }
+//  private synchronized boolean setupSaslConnection(final InputStream in2, 
+//      final OutputStream out2) 
+//      throws IOException {
+//    saslRpcClient = new SaslRpcClient(authMethod, token, serverPrincipal);
+//    return saslRpcClient.saslConnect(in2, out2);
+//  }
 
   /**
    * Update the server address if the address corresponding to the host
@@ -336,50 +345,50 @@ public class Connection extends Thread {
    * the connection again. The other problem is to do with ticket expiry. To
    * handle that, a relogin is attempted.
    */
-  private synchronized void handleSaslConnectionFailure(
-      final int currRetries, final int maxRetries, final Exception ex,
-      final Random rand, final UserGroupInformation ugi) throws IOException,
-      InterruptedException {
-    ugi.doAs(new PrivilegedExceptionAction<Object>() {
-      public Object run() throws IOException, InterruptedException {
-        final short MAX_BACKOFF = 5000;
-        closeConnection();
-        disposeSasl();
-        if (shouldAuthenticateOverKrb()) {
-          if (currRetries < maxRetries) {
-            if(LOG.isDebugEnabled()) {
-              LOG.debug("Exception encountered while connecting to "
-                  + "the server : " + ex);
-            }
-            // try re-login
-            if (UserGroupInformation.isLoginKeytabBased()) {
-              UserGroupInformation.getLoginUser().reloginFromKeytab();
-            } else {
-              UserGroupInformation.getLoginUser().reloginFromTicketCache();
-            }
-            // have granularity of milliseconds
-            //we are sleeping with the Connection lock held but since this
-            //connection instance is being used for connecting to the server
-            //in question, it is okay
-            Thread.sleep((rand.nextInt(MAX_BACKOFF) + 1));
-            return null;
-          } else {
-            String msg = "Couldn't setup connection for "
-                + UserGroupInformation.getLoginUser().getUserName() + " to "
-                + serverPrincipal;
-            LOG.warn(msg);
-            throw (IOException) new IOException(msg).initCause(ex);
-          }
-        } else {
-          LOG.warn("Exception encountered while connecting to "
-              + "the server : " + ex);
-        }
-        if (ex instanceof RemoteException)
-          throw (RemoteException) ex;
-        throw new IOException(ex);
-      }
-    });
-  }
+//  private synchronized void handleSaslConnectionFailure(
+//      final int currRetries, final int maxRetries, final Exception ex,
+//      final Random rand, final UserGroupInformation ugi) throws IOException,
+//      InterruptedException {
+//    ugi.doAs(new PrivilegedExceptionAction<Object>() {
+//      public Object run() throws IOException, InterruptedException {
+//        final short MAX_BACKOFF = 5000;
+//        closeConnection();
+//        disposeSasl();
+//        if (shouldAuthenticateOverKrb()) {
+//          if (currRetries < maxRetries) {
+//            if(LOG.isDebugEnabled()) {
+//              LOG.debug("Exception encountered while connecting to "
+//                  + "the server : " + ex);
+//            }
+//            // try re-login
+//            if (UserGroupInformation.isLoginKeytabBased()) {
+//              UserGroupInformation.getLoginUser().reloginFromKeytab();
+//            } else {
+//              UserGroupInformation.getLoginUser().reloginFromTicketCache();
+//            }
+//            // have granularity of milliseconds
+//            //we are sleeping with the Connection lock held but since this
+//            //connection instance is being used for connecting to the server
+//            //in question, it is okay
+//            Thread.sleep((rand.nextInt(MAX_BACKOFF) + 1));
+//            return null;
+//          } else {
+//            String msg = "Couldn't setup connection for "
+//                + UserGroupInformation.getLoginUser().getUserName() + " to "
+//                + serverPrincipal;
+//            LOG.warn(msg);
+//            throw (IOException) new IOException(msg).initCause(ex);
+//          }
+//        } else {
+//          LOG.warn("Exception encountered while connecting to "
+//              + "the server : " + ex);
+//        }
+//        if (ex instanceof RemoteException)
+//          throw (RemoteException) ex;
+//        throw new IOException(ex);
+//      }
+//    });
+//  }
 
   
   /** Connect to the server and set up the I/O streams. It then sends
@@ -402,7 +411,7 @@ public class Connection extends Thread {
         InputStream inStream = NetUtils.getInputStream(socket);
         OutputStream outStream = NetUtils.getOutputStream(socket);
         // FIXME
-//        writeConnectionHeader(outStream);
+        writeConnectionHeader(outStream);
         if (useSasl) {
           final InputStream in2 = inStream;
           final OutputStream out2 = outStream;
@@ -461,7 +470,7 @@ public class Connection extends Thread {
 
         // start the receiver thread after the socket connection has been set
         // up
-        //start();
+        start();
         return;
       }
     } catch (Throwable t) {
@@ -568,7 +577,7 @@ public class Connection extends Thread {
     // Write out the header, version and authentication method
     out.write(Server.HEADER.array());
     out.write(Server.CURRENT_VERSION);
-    authMethod.write(out);
+    //authMethod.write(out);
     Server.IpcSerializationType.PROTOBUF.write(out);
     out.flush();
   }
@@ -576,7 +585,7 @@ public class Connection extends Thread {
   /* Write the connection context header for each connection
    * Out is not synchronized because only the first thread does this.
    */
-  private void writeConnectionContext() throws IOException {
+/*  private void writeConnectionContext() throws IOException {
     // Write out the ConnectionHeader
     DataOutputBuffer buf = new DataOutputBuffer();
     connectionContext.writeTo(buf);
@@ -586,7 +595,7 @@ public class Connection extends Thread {
 
     out.writeInt(bufLen);
     out.write(buf.getData(), 0, bufLen);
-  }
+  }*/
   
   /* wait till someone signals us to start reading RPC response or
    * it is idle too long, it is marked as to be closed, 

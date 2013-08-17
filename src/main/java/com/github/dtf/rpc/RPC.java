@@ -35,6 +35,7 @@ import org.apache.commons.logging.*;
 
 import com.github.dtf.conf.Configuration;
 import com.github.dtf.exception.HadoopIllegalArgumentException;
+import com.github.dtf.protocol.ProtocolInfo;
 import com.github.dtf.protocol.VersionedProtocol;
 import com.github.dtf.rpc.server.Server;
 import com.github.dtf.utils.ReflectionUtils;
